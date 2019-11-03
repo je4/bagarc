@@ -2,17 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="58fdaa9a-13b5-40d2-81a4-2c83365b6cf0" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/bagarc.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/bagit.toml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/bagit/bagitCreator.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/bagit/bagitFile.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/bagit/checksum.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cli/bagit.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cli/bagitConfig.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/common/helper.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/bagit/bagitCreator.go" beforeDir="false" afterPath="$PROJECT_DIR$/bagit/bagitCreator.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/bagit/bagitFile.go" beforeDir="false" afterPath="$PROJECT_DIR$/bagit/bagitFile.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/bagit/checksum.go" beforeDir="false" afterPath="$PROJECT_DIR$/bagit/checksum.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />

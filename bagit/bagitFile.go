@@ -116,18 +116,13 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string) error {
 	done := make(chan bool)
 	defer close(done)
 
-	// create the map of all Checksum-pipes and start async process
-	rws := map[string]rwStruct{}
-	for _, csType := range checksum {
-		rw := rwStruct{}
-		rw.reader, rw.writer = io.Pipe()
-		rws[csType] = rw
-		go doChecksum(rw.reader, csType, bf.checksumResult, bf.asyncError, done)
-	}
+	check := NewChecksum(checksum)
+	check.StartThreads(done)
+
+	//rws := check.GetPipes()
 	// and the zip pipe
-	rw := rwStruct{}
-	rw.reader, rw.writer = io.Pipe()
-	rws["zip"] = rw
+	zipRW := rwStruct{}
+	zipRW.reader, zipRW.writer = io.Pipe()
 	go func() {
 		// we should end in all cases
 		defer func() { done <- true }()
@@ -146,7 +141,7 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string) error {
 		if err != nil {
 			bf.asyncError(emperror.Wrap(err, "cannot write header to zip"))
 		}
-		_, err = io.Copy(zWriter, rw.reader)
+		_, err = io.Copy(zWriter, zipRW.reader)
 		if err != nil {
 			bf.asyncError(emperror.Wrap(err, "cannot write file to zip"))
 		}
@@ -155,15 +150,15 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string) error {
 	go func() {
 		// close all writers at the end
 		defer func() {
-			for _, rw := range rws {
-				defer rw.writer.Close()
-			}
+			check.CloseWriter()
+			zipRW.writer.Close()
 		}()
 		// create list of writer
 		writers := []io.Writer{}
-		for _, rw := range rws {
+		for _, rw := range check.GetPipes() {
 			writers = append(writers, rw.writer)
 		}
+		writers = append( writers, zipRW.writer)
 
 		mw := io.MultiWriter(writers...)
 
@@ -173,17 +168,25 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string) error {
 	}()
 
 	// wait until all checksums an zip are done
-	for c := 0; c < len(rws); c++ {
+	for c := 0; c < len(checksum)+1; c++ {
 		<-done
 	}
+
 	// do error handling
+	errs := check.GetErrors()
 	if len(bf.errors) > 0 {
+		errs = append( errs, bf.errors... )
+	}
+	if len(errs) > 0 {
 		errstr := ""
-		for _, err := range bf.errors {
+		for _, err := range errs {
 			errstr = fmt.Sprintf("%v: %v", errstr, err)
 		}
 		return errors.New(errstr)
 	}
+
+	bf.Checksum = check.GetChecksums()
+
 	return nil
 }
 

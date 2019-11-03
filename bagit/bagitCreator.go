@@ -2,18 +2,12 @@ package bagit
 
 import (
 	"archive/zip"
-	"crypto/md5"
-	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/dgraph-io/badger"
 	"github.com/goph/emperror"
-	"github.com/je4/bagarc/common"
 	"github.com/op/go-logging"
-	"golang.org/x/crypto/sha3"
-	"hash"
 	"io"
 	"os"
 	"path/filepath"
@@ -79,14 +73,29 @@ func (bc *BagitCreator) Run() (err error) {
 		return emperror.Wrap(err, "error creating manifest files")
 	}
 
-	// write manifests zu zip
+	// write manifests to zip
 	bc.logger.Info("adding manifest files to bagit")
 	if err := bc.writeManifestToZip(zipWriter); err != nil {
 		return emperror.Wrap(err, "cannot write manifests to zip")
 	}
 
-	// create metadata json file
+	tagmanifests := map[string]map[string]string{}
+	for _, csType := range bc.checksum {
+		tagmanifests[csType] = map[string]string{}
+	}
 
+	// create metadata json file
+	checksums, err := bc.writeMetainfoToZip(zipWriter)
+	if err := bc.writeManifestToZip(zipWriter); err != nil {
+		return emperror.Wrap(err, "cannot write metainfo to zip")
+	}
+
+	for csType, cs := range checksums {
+		tagmanifests[csType]["bagarc/metainfo.json"] = cs
+	}
+
+	// TODO: WRITE TAGMANIFEST
+	WRITE TAGMANIFEST
 
 	return
 }
@@ -201,17 +210,77 @@ func (bc *BagitCreator) writeManifestToZip(zipWriter *zip.Writer) error {
 	return nil
 }
 
-func (bc *BagitCreator) writeMetainfoToZip( zipWriter zip.Writer) error {
-	// create the map of all Checksum-pipes and start async process
-	rws := map[string]rwStruct{}
-	for _, csType := range bc.checksum {
-		rw := rwStruct{}
-		rw.reader, rw.writer = io.Pipe()
-		rws[csType] = rw
-		//go doChecksum(rw.reader, csType, bc.checksumResult, bc.asyncError, done)
+func (bc *BagitCreator) writeMetainfoToZip(zipWriter *zip.Writer) (map[string]string, error) {
+	minfofile := filepath.Join(bc.tempdir, "metainfo.json")
+	info, err := os.Stat(minfofile)
+	if err != nil {
+		return nil, emperror.Wrapf(err, "cannot stat %v", minfofile)
+	}
+	reader, err := os.Open(minfofile)
+	if err != nil {
+		return nil, emperror.Wrapf(err, "cannot open Tv", minfofile)
+	}
+	defer reader.Close()
+
+	// create channel to synchronize
+	done := make(chan bool)
+	defer close(done)
+
+	check := NewChecksum(bc.checksum)
+	check.StartThreads(done)
+
+	zipRW := rwStruct{}
+	zipRW.reader, zipRW.writer = io.Pipe()
+	go func() {
+		// we should end in all cases
+		defer func() { done <- true }()
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			// todo: error handling
+		}
+		header.Name = "bagarc/metainfo.json"
+
+		// make sure, that compression is ok
+		header.Method = zip.Deflate
+
+		zWriter, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			// todo: error handling
+		}
+		_, err = io.Copy(zWriter, zipRW.reader)
+		if err != nil {
+			// todo: error handling
+		}
+	}()
+
+	go func() {
+		// close all writers at the end
+		defer func() {
+			check.CloseWriter()
+			zipRW.writer.Close()
+		}()
+
+		// create list of writer
+		writers := []io.Writer{}
+		for _, rw := range check.GetPipes() {
+			writers = append(writers, rw.writer)
+		}
+		writers = append(writers, zipRW.writer)
+
+		mw := io.MultiWriter(writers...)
+
+		if _, err := io.Copy(mw, reader); err != nil {
+			// todo: error handling
+		}
+	}()
+
+	// wait until all checksums an zip are done
+	for c := 0; c < len(bc.checksum)+1; c++ {
+		<-done
 	}
 
-	return nil
+	return check.GetChecksums(), nil
 }
 
 // called by file walker.
@@ -257,37 +326,4 @@ func (bc *BagitCreator) fileIterator(zipWriter *zip.Writer) (err error) {
 	}
 	txn.Commit()
 	return
-}
-
-// start Checksum process
-// supported csType's: md5, sha256, sha512
-func doChecksum(reader io.Reader, csType string, resultFunc func( string, string ), errFunc func(error), done chan bool) {
-	// we should end in all cases
-	defer func() { done <- true }()
-
-	var sink hash.Hash
-	switch csType {
-	case "md5":
-		sink = md5.New()
-	case "sha256":
-		sink = sha256.New()
-	case "sha512":
-		sink = sha512.New()
-	case "sha3-256":
-		sink = sha3.New256()
-	case "sha3-384":
-		sink = sha3.New384()
-	case "sha3-512":
-		sink = sha3.New512()
-	default:
-		errFunc(errors.New(fmt.Sprintf("invalid hash function %s", csType)))
-		null := &common.NullWriter{}
-		io.Copy(null, reader)
-		return
-	}
-	if _, err := io.Copy(sink, reader); err != nil {
-		errFunc(emperror.Wrapf(err, "cannot create checkum %s", csType))
-		return
-	}
-	resultFunc(csType, fmt.Sprintf("%x", sink.Sum(nil)))
 }
