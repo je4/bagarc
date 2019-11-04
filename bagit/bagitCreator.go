@@ -2,6 +2,7 @@ package bagit
 
 import (
 	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,18 +13,20 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 )
 
 // describes a structure for ingest process
 type BagitCreator struct {
 	logger      *logging.Logger
-	sourcedir   string     // folder to ingest
-	bagitfile   string     // resultung bagit zip file
-	checksum    []string   // list of checksums to create
-	db          *badger.DB // file storage
-	siegfried   string     // url for siegfried daemon
-	tempdir     string     // folder for temporary files
-	fixFilename bool       // true, if filenames should be corrected
+	sourcedir   string            // folder to ingest
+	bagitfile   string            // resultung bagit zip file
+	checksum    []string          // list of checksums to create
+	db          *badger.DB        // file storage
+	siegfried   string            // url for siegfried daemon
+	tempdir     string            // folder for temporary files
+	fixFilename bool              // true, if filenames should be corrected
+	bagInfo     map[string]string // list of entries for bag-info.txt
 }
 
 type rwStruct struct {
@@ -32,7 +35,7 @@ type rwStruct struct {
 }
 
 // creates a new bagit creation structure
-func NewBagitCreator(sourcedir, bagitfile string, checksum []string, db *badger.DB, fixFilename bool, siegfried string, tempdir string, logger *logging.Logger) (*BagitCreator, error) {
+func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map[string]string, db *badger.DB, fixFilename bool, siegfried string, tempdir string, logger *logging.Logger) (*BagitCreator, error) {
 	sourcedir = filepath.ToSlash(filepath.Clean(sourcedir))
 	bagitfile = filepath.ToSlash(filepath.Clean(bagitfile))
 	// make sure, that file does not exist...
@@ -50,6 +53,7 @@ func NewBagitCreator(sourcedir, bagitfile string, checksum []string, db *badger.
 		fixFilename: fixFilename,
 		siegfried:   siegfried,
 		tempdir:     tempdir,
+		bagInfo:     bagInfo,
 	}
 	return bagitCreator, nil
 }
@@ -95,6 +99,16 @@ func (bc *BagitCreator) Run() (err error) {
 
 	for csType, cs := range checksums {
 		tagmanifests[csType]["bagarc/metainfo.json"] = cs
+	}
+
+	if len(bc.bagInfo) > 0 {
+		checksums, err = bc.writeBaginfoToZip(zipWriter)
+		if err != nil {
+			return emperror.Wrap(err, "cannot write bag-info.txt to zip")
+		}
+		for csType, cs := range checksums {
+			tagmanifests[csType]["bag-info.txt"] = cs
+		}
 	}
 
 	for csType, tags := range tagmanifests {
@@ -257,6 +271,23 @@ func (bc *BagitCreator) writeMetainfoToZip(zipWriter *zip.Writer) (map[string]st
 	return checksums, nil
 }
 
+func (bc *BagitCreator) writeBaginfoToZip(zipWriter *zip.Writer) (map[string]string, error) {
+	writer, err := zipWriter.Create("bag-info.txt")
+	if err != nil {
+		return nil, emperror.Wrap(err, "cannot create bag-info.txt in zip")
+	}
+	re := regexp.MustCompile(`\r?\n`)
+	buf := bytes.NewBufferString("")
+	for key, val := range bc.bagInfo {
+		val = re.ReplaceAllString(val, "\n    ")
+		buf.WriteString(fmt.Sprintf("%s: %s\n", key, val))
+	}
+	reader := bytes.NewReader(buf.Bytes())
+
+	return ChecksumCopy(writer, reader, bc.checksum)
+}
+
+
 // called by file walker.
 func (bc *BagitCreator) visitFile(path string, f os.FileInfo, zipWriter *zip.Writer, txn *badger.Txn, err error) error {
 	bf, err := NewBagitFile(bc.sourcedir, path, bc.fixFilename)
@@ -301,3 +332,4 @@ func (bc *BagitCreator) fileIterator(zipWriter *zip.Writer) (err error) {
 	txn.Commit()
 	return
 }
+

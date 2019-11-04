@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/dgraph-io/badger"
 	_ "github.com/dgraph-io/badger"
 	"github.com/je4/bagarc/bagit"
 	"github.com/je4/bagarc/common"
 	flag "github.com/spf13/pflag"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -20,6 +22,7 @@ func main() {
 	var checksum = flag.StringArray("checksum", []string{"md5", "sha512"}, "checksum algorithms to use (md5|sha256|sha512)")
 	var siegfried = flag.String( "sf", "", "url for siegfried [[PATH]] is placeholder for local file reference")
 	var fixFilenames = flag.Bool("fixfilenames", true, "set this flag, if filenames should be corrected")
+	var bagInfoFile = flag.String("baginfo", "", "json file with bag-info entries (only string, no hierarchy)")
 	flag.Parse()
 
 	var conf = &BagitConfig{
@@ -70,7 +73,18 @@ func main() {
 		}
 		defer db.Close()
 
-		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, db, conf.FixFilenames, conf.Siegfried, tmpdir, logger)
+		bagInfo := map[string]string{}
+		if *bagInfoFile != "" {
+			data, err := ioutil.ReadFile(*bagInfoFile)
+			if err != nil {
+				logger.Fatalf("cannot read bag info file %s", *bagInfoFile)
+			}
+			if err := json.Unmarshal(data, &bagInfo); err != nil {
+				logger.Fatalf("cannot unmarshal bag info file %s: %v", *bagInfoFile, err)
+			}
+		}
+
+		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.Siegfried, tmpdir, logger)
 		if err != nil {
 			log.Fatalf("cannot create BagitCreator: %v", err)
 			return
