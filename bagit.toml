@@ -3,3 +3,4 @@ Loglevel = "DEBUG"
 Logformat = "%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} > %{level:.5s} - %{message}"
 Checksum  = ["md5", "sha512"]
 Siegfried = "http://localhost:5138/identify/[[PATH]]?format=json"
+FixFilenames = true

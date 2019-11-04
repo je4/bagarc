@@ -19,6 +19,7 @@ func main() {
 	var tempdir = flag.String("temp", "/tmp", "folder for temporary files")
 	var checksum = flag.StringArray("checksum", []string{"md5", "sha512"}, "checksum algorithms to use (md5|sha256|sha512)")
 	var siegfried = flag.String( "sf", "", "url for siegfried [[PATH]] is placeholder for local file reference")
+	var fixFilenames = flag.Bool("fixfilenames", true, "set this flag, if filenames should be corrected")
 	flag.Parse()
 
 	var conf = &BagitConfig{
@@ -41,6 +42,8 @@ func main() {
 			conf.Checksum = *checksum
 		case "siegfried":
 			conf.Siegfried = *siegfried
+		case "fixfilenames":
+			conf.FixFilenames = *fixFilenames
 		}
 	})
 
@@ -67,7 +70,7 @@ func main() {
 		}
 		defer db.Close()
 
-		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, db, conf.Siegfried, tmpdir, logger)
+		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, db, conf.FixFilenames, conf.Siegfried, tmpdir, logger)
 		if err != nil {
 			log.Fatalf("cannot create BagitCreator: %v", err)
 			return

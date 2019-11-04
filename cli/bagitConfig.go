@@ -7,12 +7,13 @@ import (
 
 // main config structure for toml file
 type BagitConfig struct {
-	Logfile   string   `toml:"logfile"`
-	Loglevel  string   `toml:"loglevel"`
-	Logformat string   `toml:"logformat"`
-	Checksum  []string `toml:"checksum"`
-	Tempdir   string   `toml:"tempdir"`
-	Siegfried string   `toml:"siegfried"`
+	Logfile      string   `toml:"logfile"`
+	Loglevel     string   `toml:"loglevel"`
+	Logformat    string   `toml:"logformat"`
+	Checksum     []string `toml:"checksum"`
+	Tempdir      string   `toml:"tempdir"`
+	Siegfried    string   `toml:"siegfried"`
+	FixFilenames bool     `toml:"fixfilenames"`
 }
 
 func LoadBagitConfig(filepath string, conf *BagitConfig) error {

@@ -3,10 +3,9 @@ package bagit
 import (
 	"archive/zip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/goph/emperror"
-	"io"
+	"github.com/je4/bagarc/common"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -18,6 +17,7 @@ import (
 
 type BagitFile struct {
 	Path        string            `json:"path"`
+	ZipPath     string            `json:"zippath"`
 	Checksum    map[string]string `json:"checksum"`
 	Size        int64             `json:"size"`
 	Siegfried   []SFMatches       `json:"siegfried,omitempty"`
@@ -59,7 +59,7 @@ type SF struct {
 	Files       []SFFiles      `json:"files,omitempty"`
 }
 
-func NewBagitFile(baseDir, path string) (*BagitFile, error) {
+func NewBagitFile(baseDir, path string, fixFilename bool) (*BagitFile, error) {
 	// first check existence etc.
 	info, err := os.Stat(path)
 	if err != nil {
@@ -69,8 +69,13 @@ func NewBagitFile(baseDir, path string) (*BagitFile, error) {
 	if path == "" {
 		path = "."
 	}
+	newPath := path
+	if fixFilename {
+		newPath = common.FixFilename(path)
+	}
 	var bf = &BagitFile{
 		Path:     path,
+		ZipPath:  newPath,
 		Size:     info.Size(),
 		Checksum: map[string]string{},
 		baseDir:  baseDir,
@@ -90,20 +95,6 @@ func (bf *BagitFile) IsDir() bool {
 	return bf.info.IsDir()
 }
 
-// set error of an async process
-func (bf *BagitFile) asyncError(err error) {
-	bf.resultMutex.Lock()
-	defer bf.resultMutex.Unlock()
-	bf.errors = append(bf.errors, err)
-}
-
-// set result of async Checksum process
-func (bf *BagitFile) checksumResult(csType, value string) {
-	bf.resultMutex.Lock()
-	defer bf.resultMutex.Unlock()
-	bf.Checksum[csType] = value
-}
-
 func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string) error {
 	fullpath := filepath.Join(bf.baseDir, bf.Path)
 	fileToZip, err := os.Open(fullpath)
@@ -112,81 +103,25 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string) error {
 	}
 	defer fileToZip.Close()
 
-	// create channel to synchronize
-	done := make(chan bool)
-	defer close(done)
+	header, err := zip.FileInfoHeader(bf.info)
+	if err != nil {
+		return emperror.Wrap(err, "cannot create zip.FileInfoHeader")
+	}
+	// we write only to the data subfolder
+	header.Name = filepath.Join("data", bf.ZipPath)
 
-	check := NewChecksum(checksum)
-	check.StartThreads(done)
+	// make sure, that compression is ok
+	header.Method = zip.Deflate
 
-	//rws := check.GetPipes()
-	// and the zip pipe
-	zipRW := rwStruct{}
-	zipRW.reader, zipRW.writer = io.Pipe()
-	go func() {
-		// we should end in all cases
-		defer func() { done <- true }()
-
-		header, err := zip.FileInfoHeader(bf.info)
-		if err != nil {
-			bf.asyncError(emperror.Wrap(err, "cannot create zip.FileInfoHeader"))
-		}
-		// we write only to the data subfolder
-		header.Name = filepath.Join("data", bf.Path)
-
-		// make sure, that compression is ok
-		header.Method = zip.Deflate
-
-		zWriter, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			bf.asyncError(emperror.Wrap(err, "cannot write header to zip"))
-		}
-		_, err = io.Copy(zWriter, zipRW.reader)
-		if err != nil {
-			bf.asyncError(emperror.Wrap(err, "cannot write file to zip"))
-		}
-	}()
-
-	go func() {
-		// close all writers at the end
-		defer func() {
-			check.CloseWriter()
-			zipRW.writer.Close()
-		}()
-		// create list of writer
-		writers := []io.Writer{}
-		for _, rw := range check.GetPipes() {
-			writers = append(writers, rw.writer)
-		}
-		writers = append( writers, zipRW.writer)
-
-		mw := io.MultiWriter(writers...)
-
-		if _, err := io.Copy(mw, fileToZip); err != nil {
-			bf.asyncError(emperror.Wrap(err, "cannot write to zip"))
-		}
-	}()
-
-	// wait until all checksums an zip are done
-	for c := 0; c < len(checksum)+1; c++ {
-		<-done
+	zWriter, err := zipWriter.CreateHeader(header)
+	if err != nil {
+		return emperror.Wrap(err, "cannot write header to zip")
 	}
 
-	// do error handling
-	errs := check.GetErrors()
-	if len(bf.errors) > 0 {
-		errs = append( errs, bf.errors... )
+	bf.Checksum, err = ChecksumCopy(zWriter, fileToZip, checksum)
+	if err != nil {
+		return emperror.Wrapf(err, "cannot write file to zip")
 	}
-	if len(errs) > 0 {
-		errstr := ""
-		for _, err := range errs {
-			errstr = fmt.Sprintf("%v: %v", errstr, err)
-		}
-		return errors.New(errstr)
-	}
-
-	bf.Checksum = check.GetChecksums()
-
 	return nil
 }
 

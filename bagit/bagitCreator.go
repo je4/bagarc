@@ -9,19 +9,21 @@ import (
 	"github.com/goph/emperror"
 	"github.com/op/go-logging"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 )
 
 // describes a structure for ingest process
 type BagitCreator struct {
-	logger    *logging.Logger
-	sourcedir string     // folder to ingest
-	bagitfile string     // resultung bagit zip file
-	checksum  []string   // list of checksums to create
-	db        *badger.DB // file storage
-	siegfried string     // url for siegfried daemon
-	tempdir   string     // folder for temporary files
+	logger      *logging.Logger
+	sourcedir   string     // folder to ingest
+	bagitfile   string     // resultung bagit zip file
+	checksum    []string   // list of checksums to create
+	db          *badger.DB // file storage
+	siegfried   string     // url for siegfried daemon
+	tempdir     string     // folder for temporary files
+	fixFilename bool       // true, if filenames should be corrected
 }
 
 type rwStruct struct {
@@ -30,7 +32,7 @@ type rwStruct struct {
 }
 
 // creates a new bagit creation structure
-func NewBagitCreator(sourcedir, bagitfile string, checksum []string, db *badger.DB, siegfried string, tempdir string, logger *logging.Logger) (*BagitCreator, error) {
+func NewBagitCreator(sourcedir, bagitfile string, checksum []string, db *badger.DB, fixFilename bool, siegfried string, tempdir string, logger *logging.Logger) (*BagitCreator, error) {
 	sourcedir = filepath.ToSlash(filepath.Clean(sourcedir))
 	bagitfile = filepath.ToSlash(filepath.Clean(bagitfile))
 	// make sure, that file does not exist...
@@ -40,13 +42,14 @@ func NewBagitCreator(sourcedir, bagitfile string, checksum []string, db *badger.
 	}
 
 	bagitCreator := &BagitCreator{
-		sourcedir: sourcedir,
-		bagitfile: bagitfile,
-		logger:    logger,
-		checksum:  checksum,
-		db:        db,
-		siegfried: siegfried,
-		tempdir:   tempdir,
+		sourcedir:   sourcedir,
+		bagitfile:   bagitfile,
+		logger:      logger,
+		checksum:    checksum,
+		db:          db,
+		fixFilename: fixFilename,
+		siegfried:   siegfried,
+		tempdir:     tempdir,
 	}
 	return bagitCreator, nil
 }
@@ -86,7 +89,7 @@ func (bc *BagitCreator) Run() (err error) {
 
 	// create metadata json file
 	checksums, err := bc.writeMetainfoToZip(zipWriter)
-	if err := bc.writeManifestToZip(zipWriter); err != nil {
+	if err != nil {
 		return emperror.Wrap(err, "cannot write metainfo to zip")
 	}
 
@@ -94,8 +97,19 @@ func (bc *BagitCreator) Run() (err error) {
 		tagmanifests[csType]["bagarc/metainfo.json"] = cs
 	}
 
-	// TODO: WRITE TAGMANIFEST
-	WRITE TAGMANIFEST
+	for csType, tags := range tagmanifests {
+		manifestfile := fmt.Sprintf("tagmanifest-%s.txt", csType)
+		f, err := zipWriter.Create(manifestfile)
+		if err != nil {
+			return emperror.Wrapf(err, "cannot create zip file %v", manifestfile)
+		}
+		for filename, checksum := range tags {
+			_, err = f.Write([]byte(fmt.Sprintf("%s %s\n", filename, checksum)))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
 
 	return
 }
@@ -218,74 +232,34 @@ func (bc *BagitCreator) writeMetainfoToZip(zipWriter *zip.Writer) (map[string]st
 	}
 	reader, err := os.Open(minfofile)
 	if err != nil {
-		return nil, emperror.Wrapf(err, "cannot open Tv", minfofile)
+		return nil, emperror.Wrapf(err, "cannot open %v", minfofile)
 	}
 	defer reader.Close()
 
-	// create channel to synchronize
-	done := make(chan bool)
-	defer close(done)
+	header, err := zip.FileInfoHeader(info)
+	if err != nil {
+		// todo: error handling
+	}
+	header.Name = "bagarc/metainfo.json"
 
-	check := NewChecksum(bc.checksum)
-	check.StartThreads(done)
+	// make sure, that compression is ok
+	header.Method = zip.Deflate
 
-	zipRW := rwStruct{}
-	zipRW.reader, zipRW.writer = io.Pipe()
-	go func() {
-		// we should end in all cases
-		defer func() { done <- true }()
-
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			// todo: error handling
-		}
-		header.Name = "bagarc/metainfo.json"
-
-		// make sure, that compression is ok
-		header.Method = zip.Deflate
-
-		zWriter, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			// todo: error handling
-		}
-		_, err = io.Copy(zWriter, zipRW.reader)
-		if err != nil {
-			// todo: error handling
-		}
-	}()
-
-	go func() {
-		// close all writers at the end
-		defer func() {
-			check.CloseWriter()
-			zipRW.writer.Close()
-		}()
-
-		// create list of writer
-		writers := []io.Writer{}
-		for _, rw := range check.GetPipes() {
-			writers = append(writers, rw.writer)
-		}
-		writers = append(writers, zipRW.writer)
-
-		mw := io.MultiWriter(writers...)
-
-		if _, err := io.Copy(mw, reader); err != nil {
-			// todo: error handling
-		}
-	}()
-
-	// wait until all checksums an zip are done
-	for c := 0; c < len(bc.checksum)+1; c++ {
-		<-done
+	zWriter, err := zipWriter.CreateHeader(header)
+	if err != nil {
+		return nil, emperror.Wrapf(err, "cannot create zip file header")
+	}
+	checksums, err := ChecksumCopy(zWriter, reader, bc.checksum)
+	if err != nil {
+		return nil, emperror.Wrapf(err, "cannot write data to zip")
 	}
 
-	return check.GetChecksums(), nil
+	return checksums, nil
 }
 
 // called by file walker.
 func (bc *BagitCreator) visitFile(path string, f os.FileInfo, zipWriter *zip.Writer, txn *badger.Txn, err error) error {
-	bf, err := NewBagitFile(bc.sourcedir, path)
+	bf, err := NewBagitFile(bc.sourcedir, path, bc.fixFilename)
 	if err != nil {
 		return emperror.Wrap(err, "error creating BagitFile")
 	}
