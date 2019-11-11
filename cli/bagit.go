@@ -20,7 +20,7 @@ func main() {
 	var configfile = flag.String("cfg", "/etc/bagit.toml", "configuration file")
 	var tempdir = flag.String("temp", "/tmp", "folder for temporary files")
 	var checksum = flag.StringArray("checksum", []string{"md5", "sha512"}, "checksum algorithms to use (md5|sha256|sha512)")
-	var siegfried = flag.String( "sf", "", "url for siegfried [[PATH]] is placeholder for local file reference")
+	var siegfried = flag.String("sf", "", "url for siegfried [[PATH]] is placeholder for local file reference")
 	var fixFilenames = flag.Bool("fixfilenames", true, "set this flag, if filenames should be corrected")
 	var bagInfoFile = flag.String("baginfo", "", "json file with bag-info entries (only string, no hierarchy)")
 	var cleanup = flag.Bool("cleanup", false, "remove temporary files after bagit creation")
@@ -39,7 +39,7 @@ func main() {
 	}
 
 	// set all config values, which could be orverridden by flags
-	flag.Visit(func( f *flag.Flag){
+	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "temp":
 			conf.Tempdir = *tempdir
@@ -57,7 +57,6 @@ func main() {
 	logger, lf := common.CreateLogger("bagit", conf.Logfile, conf.Loglevel, conf.Logformat)
 	defer lf.Close()
 
-
 	switch *action {
 	case "check":
 		tmpdir, err := ioutil.TempDir(conf.Tempdir, filepath.Base(*bagitfile))
@@ -70,9 +69,14 @@ func main() {
 		if err != nil {
 			logger.Fatalf("cannot open badger database: %v", err)
 		}
-		defer db.Close()
+		defer func() {
+			db.Close()
+			if err := os.RemoveAll(tmpdir); err != nil {
+				logger.Errorf("cannot remove %s: %v", tmpdir, err)
+			}
+		}()
 
-		checker, err := bagit.NewBagitChecker( *bagitfile, tmpdir, db, logger )
+		checker, err := bagit.NewBagitChecker(*bagitfile, tmpdir, db, logger)
 		if err := checker.Run(); err != nil {
 			logger.Fatalf("error checking file: %v", err)
 		}
@@ -90,7 +94,14 @@ func main() {
 		if err != nil {
 			logger.Fatalf("cannot open badger database: %v", err)
 		}
-		defer db.Close()
+		defer func() {
+			db.Close()
+			if conf.Cleanup {
+				if err := os.RemoveAll(tmpdir); err != nil {
+					logger.Errorf("cannot remove %s: %v", tmpdir, err)
+				}
+			}
+		}()
 
 		bagInfo := map[string]string{}
 		if *bagInfoFile != "" {
@@ -110,10 +121,6 @@ func main() {
 		}
 		if err := creator.Run(); err != nil {
 			log.Fatalf("cannot create Bagit: %v", err)
-		}
-		if conf.Cleanup {
-			db.Close()
-			os.RemoveAll(tmpdir)
 		}
 	default:
 	}
