@@ -1,6 +1,20 @@
 Logfile = ""
 Loglevel = "DEBUG"
 Logformat = "%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} > %{level:.5s} - %{message}"
+
+Tempdir = "c:/temp"
+
+# remove temporary files after bagit creation
+Cleanup = false
+
+# checksums which need to be created for bagit
 Checksum  = ["md5", "sha512"]
+
+# url to call siegfried service [[PATH]] will be replaced with filename
 Siegfried = "http://localhost:5138/identify/[[PATH]]?format=json"
+
+# rename filenames with characters which should be avoided
 FixFilenames = true
+
+# list of pronim id's which should be stored without compression
+Nocompress = ["fmt/17", "fmt/353"]  # pdf, tiff

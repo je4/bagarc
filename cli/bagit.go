@@ -23,6 +23,8 @@ func main() {
 	var siegfried = flag.String( "sf", "", "url for siegfried [[PATH]] is placeholder for local file reference")
 	var fixFilenames = flag.Bool("fixfilenames", true, "set this flag, if filenames should be corrected")
 	var bagInfoFile = flag.String("baginfo", "", "json file with bag-info entries (only string, no hierarchy)")
+	var cleanup = flag.Bool("cleanup", false, "remove temporary files after bagit creation")
+
 	flag.Parse()
 
 	var conf = &BagitConfig{
@@ -47,6 +49,8 @@ func main() {
 			conf.Siegfried = *siegfried
 		case "fixfilenames":
 			conf.FixFilenames = *fixFilenames
+		case "cleanup":
+			conf.Cleanup = *cleanup
 		}
 	})
 
@@ -55,15 +59,30 @@ func main() {
 
 
 	switch *action {
+	case "check":
+		tmpdir, err := ioutil.TempDir(conf.Tempdir, filepath.Base(*bagitfile))
+		if err != nil {
+			logger.Fatalf("cannot create temporary folder in %s", conf.Tempdir)
+		}
+		bconfig := badger.DefaultOptions(filepath.Join(tmpdir, "/badger"))
+		bconfig.Logger = logger // use our logger...
+		db, err := badger.Open(bconfig)
+		if err != nil {
+			logger.Fatalf("cannot open badger database: %v", err)
+		}
+		defer db.Close()
+
+		checker, err := bagit.NewBagitChecker( *bagitfile, tmpdir, db, logger )
+		if err := checker.Run(); err != nil {
+			logger.Fatalf("error checking file: %v", err)
+		}
+
 	case "bagit":
 		// clean up all files
 		tmpdir := *bagitfile + ".tmp"
 		os.Remove(*bagitfile)
 		os.RemoveAll(tmpdir)
 		os.Mkdir(tmpdir, os.ModePerm)
-
-		// Open the Badger database located in the /tmp/badger directory.
-		// It will be created if it doesn't exist.
 
 		bconfig := badger.DefaultOptions(filepath.Join(tmpdir, "/badger"))
 		bconfig.Logger = logger // use our logger...
@@ -84,13 +103,17 @@ func main() {
 			}
 		}
 
-		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.Siegfried, tmpdir, logger)
+		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.StoreOnly, conf.Siegfried, tmpdir, logger)
 		if err != nil {
 			log.Fatalf("cannot create BagitCreator: %v", err)
 			return
 		}
 		if err := creator.Run(); err != nil {
 			log.Fatalf("cannot create Bagit: %v", err)
+		}
+		if conf.Cleanup {
+			db.Close()
+			os.RemoveAll(tmpdir)
 		}
 	default:
 	}

@@ -14,6 +14,8 @@ type BagitConfig struct {
 	Tempdir      string   `toml:"tempdir"`
 	Siegfried    string   `toml:"siegfried"`
 	FixFilenames bool     `toml:"fixfilenames"`
+	StoreOnly    []string `toml:"nocompress"`
+	Cleanup      bool     `toml:"cleanup"`
 }
 
 func LoadBagitConfig(filepath string, conf *BagitConfig) error {

@@ -95,7 +95,7 @@ func (bf *BagitFile) IsDir() bool {
 	return bf.info.IsDir()
 }
 
-func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string) error {
+func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string, compression uint16) error {
 	fullpath := filepath.Join(bf.baseDir, bf.Path)
 	fileToZip, err := os.Open(fullpath)
 	if err != nil {
@@ -111,7 +111,7 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string) error {
 	header.Name = filepath.Join("data", bf.ZipPath)
 
 	// make sure, that compression is ok
-	header.Method = zip.Deflate
+	header.Method = compression
 
 	zWriter, err := zipWriter.CreateHeader(header)
 	if err != nil {

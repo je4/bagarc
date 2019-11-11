@@ -2,6 +2,7 @@ package bagit
 
 import (
 	"crypto/md5"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"errors"
@@ -51,6 +52,8 @@ func (c *ChecksumWriter) doChecksum(reader io.Reader, csType string, done chan b
 	switch csType {
 	case "md5":
 		sink = md5.New()
+	case "sha1":
+		sink = sha1.New()
 	case "sha256":
 		sink = sha256.New()
 	case "sha512":
