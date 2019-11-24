@@ -3,6 +3,7 @@ package bagit
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -116,7 +118,7 @@ func (bc *BagitCreator) Run() (err error) {
 	}
 
 	for csType, cs := range checksums {
-		tagmanifests[csType]["bagarc/renames.txt"] = cs
+		tagmanifests[csType]["bagarc/renames.csv"] = cs
 	}
 
 	if len(bc.bagInfo) > 0 {
@@ -165,19 +167,20 @@ func (bc *BagitCreator) createManifestsAndTags() (err error) {
 		}
 	}()
 
-	bc.logger.Infof("creating %s", "metainfo.json/renames.txt")
+	bc.logger.Infof("creating %s", "metainfo.json/renames.csv")
 	metainfofname := filepath.Join(bc.tempdir, "metainfo.json")
 	metainfo, err := os.Create(metainfofname)
 	if err != nil {
 		return emperror.Wrapf(err, "cannot create %v", metainfofname)
 	}
 	defer metainfo.Close()
-	renamesfname := filepath.Join(bc.tempdir, "renames.txt")
-	renames, err := os.Create(renamesfname)
+	renamesfname := filepath.Join(bc.tempdir, "renames.csv")
+	renamesf, err := os.Create(renamesfname)
 	if err != nil {
 		return emperror.Wrapf(err, "cannot create %v", renamesfname)
 	}
-	defer renames.Close()
+	defer renamesf.Close()
+	renames := csv.NewWriter(renamesf)
 
 	metainfo.WriteString("[")
 
@@ -211,7 +214,7 @@ func (bc *BagitCreator) createManifestsAndTags() (err error) {
 				metainfo.Write(v)
 
 				if bf.ZipPath != bf.Path {
-					renames.WriteString(fmt.Sprintf("%s: %s\n", bf.ZipPath, bf.Path))
+					renames.Write([]string{strings.Trim(bf.Path, "/"), strings.TrimPrefix(bf.ZipPath, "/")})
 				}
 				//			fmt.Printf("key=%s, value=%s\n", k, v)
 				return nil
@@ -221,6 +224,7 @@ func (bc *BagitCreator) createManifestsAndTags() (err error) {
 			}
 			first = false
 		}
+		renames.Flush()
 		return nil
 	}); err != nil {
 		return emperror.Wrap(err, "cannot create manifest files")
@@ -301,7 +305,7 @@ func (bc *BagitCreator) writeMetainfoToZip(zipWriter *zip.Writer) (map[string]st
 }
 
 func (bc *BagitCreator) writeRenamesToZip(zipWriter *zip.Writer) (map[string]string, error) {
-	renamesfile := filepath.Join(bc.tempdir, "renames.txt")
+	renamesfile := filepath.Join(bc.tempdir, "renames.csv")
 	renames, err := os.Stat(renamesfile)
 	if err != nil {
 		return nil, emperror.Wrapf(err, "cannot stat %v", renamesfile)
@@ -316,7 +320,7 @@ func (bc *BagitCreator) writeRenamesToZip(zipWriter *zip.Writer) (map[string]str
 	if err != nil {
 		// todo: error handling
 	}
-	header.Name = "bagarc/renames.txt"
+	header.Name = "bagarc/renames.csv"
 
 	// make sure, that compression is ok
 	header.Method = zip.Deflate
@@ -383,7 +387,7 @@ func (bc *BagitCreator) visitFile(path string, f os.FileInfo, zipWriter *zip.Wri
 		if err := bf.GetSiegfried(bc.siegfried); err != nil {
 			bc.logger.Errorf("error querying siegfried: %v", err)
 		} else {
-			// check wether compression should be avoided
+			// checkManifest wether compression should be avoided
 			if len(bf.Siegfried) > 0 {
 				id := bf.Siegfried[0].Id
 				for _, nc := range bc.storeOnly {

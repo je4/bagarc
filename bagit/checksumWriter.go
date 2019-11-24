@@ -42,6 +42,33 @@ func ChecksumCopy(dst io.Writer, src io.Reader, checksums[]string) (map[string]s
 	return cw.Copy(dst, src)
 }
 
+func Checksum( src io.Reader, checksum string ) (string, error) {
+	var sink hash.Hash
+	switch checksum {
+	case "md5":
+		sink = md5.New()
+	case "sha1":
+		sink = sha1.New()
+	case "sha256":
+		sink = sha256.New()
+	case "sha512":
+		sink = sha512.New()
+	case "sha3-256":
+		sink = sha3.New256()
+	case "sha3-384":
+		sink = sha3.New384()
+	case "sha3-512":
+		sink = sha3.New512()
+	default:
+		return "", errors.New(fmt.Sprintf("invalid checksum type %s", checksum))
+	}
+	if _, err := io.Copy(sink, src); err != nil {
+		return "", emperror.Wrapf(err, "cannot create checkum %s", checksum)
+	}
+	csString := fmt.Sprintf("%x", sink.Sum(nil))
+	return csString, nil
+}
+
 // start ChecksumWriter process
 // supported csType's: md5, sha256, sha512
 func (c *ChecksumWriter) doChecksum(reader io.Reader, csType string, done chan bool) {

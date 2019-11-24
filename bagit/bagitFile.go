@@ -60,7 +60,7 @@ type SF struct {
 }
 
 func NewBagitFile(baseDir, path string, fixFilename bool) (*BagitFile, error) {
-	// first check existence etc.
+	// first checkManifest existence etc.
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, emperror.Wrapf(err, "cannot stat %v", path)

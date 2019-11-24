@@ -1,8 +1,13 @@
+Listen = "localhost:80"
+TLS = false
+
 Logfile = ""
 Loglevel = "DEBUG"
 Logformat = "%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} > %{level:.5s} - %{message}"
 
 Tempdir = "c:/temp"
+Basedir = "c:/temp"
+DBFolder = "c:/temp/badger"
 
 # remove temporary files after bagit creation
 Cleanup = false
@@ -16,5 +21,5 @@ Siegfried = "http://localhost:5138/identify/[[PATH]]?format=json"
 # rename filenames with characters which should be avoided
 FixFilenames = true
 
-# list of pronim id's which should be stored without compression
+# list of pronom id's which should be stored without compression
 Nocompress = ["fmt/17", "fmt/353"]  # pdf, tiff

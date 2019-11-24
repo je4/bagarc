@@ -24,17 +24,19 @@ func main() {
 	var fixFilenames = flag.Bool("fixfilenames", true, "set this flag, if filenames should be corrected")
 	var bagInfoFile = flag.String("baginfo", "", "json file with bag-info entries (only string, no hierarchy)")
 	var cleanup = flag.Bool("cleanup", false, "remove temporary files after bagit creation")
+	var restoreFilenames = flag.Bool("restorefilenames", true, "rename strange characters back while extracting")
+	var outputFolder  = flag.String("output", ".", "folder in which output structure has to be copied")
 
 	flag.Parse()
 
-	var conf = &BagitConfig{
+	var conf = &common.BagitConfig{
 		Logfile:   "",
 		Loglevel:  "DEBUG",
 		Logformat: `%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} > %{level:.5s} - %{message}`,
 		Checksum:  []string{"md5", "sha512"},
 		Tempdir:   "/tmp",
 	}
-	if err := LoadBagitConfig(*configfile, conf); err != nil {
+	if err := common.LoadBagitConfig(*configfile, conf); err != nil {
 		log.Printf("cannot load config file: %v", err)
 	}
 
@@ -76,11 +78,32 @@ func main() {
 			}
 		}()
 
-		checker, err := bagit.NewBagitChecker(*bagitfile, tmpdir, db, logger)
-		if err := checker.Run(); err != nil {
+		checker, err := bagit.NewBagit(*bagitfile, tmpdir, db, logger)
+		if err := checker.Check(); err != nil {
 			logger.Fatalf("error checking file: %v", err)
 		}
+	case "extract":
+		tmpdir, err := ioutil.TempDir(conf.Tempdir, filepath.Base(*bagitfile))
+		if err != nil {
+			logger.Fatalf("cannot create temporary folder in %s", conf.Tempdir)
+		}
+		bconfig := badger.DefaultOptions(filepath.Join(tmpdir, "/badger"))
+		bconfig.Logger = logger // use our logger...
+		db, err := badger.Open(bconfig)
+		if err != nil {
+			logger.Fatalf("cannot open badger database: %v", err)
+		}
+		defer func() {
+			db.Close()
+			if err := os.RemoveAll(tmpdir); err != nil {
+				logger.Errorf("cannot remove %s: %v", tmpdir, err)
+			}
+		}()
 
+		checker, err := bagit.NewBagit(*bagitfile, tmpdir, db, logger)
+		if err := checker.Extract(*outputFolder, *restoreFilenames); err != nil {
+			logger.Fatalf("error extracting file: %v", err)
+		}
 	case "bagit":
 		// clean up all files
 		tmpdir := *bagitfile + ".tmp"
