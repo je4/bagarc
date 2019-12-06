@@ -2,6 +2,7 @@ package common
 
 import (
 	"github.com/op/go-logging"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,7 +15,7 @@ func (w *NullWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func CreateLogger(module string, logfile string, loglevel string, logformat string) (log *logging.Logger, lf *os.File) {
+func CreateLogger(module string, logfile string, w *io.PipeWriter, loglevel string, logformat string) (log *logging.Logger, lf *os.File) {
 	log = logging.MustGetLogger(module)
 	var err error
 	if logfile != "" {
@@ -27,7 +28,8 @@ func CreateLogger(module string, logfile string, loglevel string, logformat stri
 	} else {
 		lf = os.Stderr
 	}
-	backend := logging.NewLogBackend(lf, "", 0)
+	w2 := io.MultiWriter(w, lf)
+	backend := logging.NewLogBackend(w2, "", 0)
 	backendLeveled := logging.AddModuleLevel(backend)
 	backendLeveled.SetLevel(logging.GetLevel(loglevel), "")
 

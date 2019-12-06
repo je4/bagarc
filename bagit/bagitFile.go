@@ -113,6 +113,7 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string, compress
 	// make sure, that compression is ok
 	header.Method = compression
 
+
 	zWriter, err := zipWriter.CreateHeader(header)
 	if err != nil {
 		return emperror.Wrap(err, "cannot write header to zip")
