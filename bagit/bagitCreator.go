@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dgraph-io/badger"
+	"github.com/dustin/go-humanize"
 	"github.com/goph/emperror"
 	"github.com/op/go-logging"
 	"io"
@@ -93,13 +94,21 @@ func (bc *BagitCreator) Run() (err error) {
 
 	// write manifests to zip
 	bc.logger.Info("adding manifest files to bagit")
-	if err := bc.writeManifestToZip(zipWriter); err != nil {
+	manifestCS, err := bc.writeManifestToZip(zipWriter)
+	if err != nil {
 		return emperror.Wrap(err, "cannot write manifests to zip")
 	}
 
 	tagmanifests := map[string]map[string]string{}
 	for _, csType := range bc.checksum {
 		tagmanifests[csType] = map[string]string{}
+	}
+
+	// manifest checksums...
+	for csType, fcs := range manifestCS {
+		for fname, cs := range fcs {
+			tagmanifests[csType][fname] = cs
+		}
 	}
 
 	// create metadata json file
@@ -138,7 +147,7 @@ func (bc *BagitCreator) Run() (err error) {
 			return emperror.Wrapf(err, "cannot create zip file %v", manifestfile)
 		}
 		for filename, checksum := range tags {
-			_, err = f.Write([]byte(fmt.Sprintf("%s %s\n", filename, checksum)))
+			_, err = f.Write([]byte(fmt.Sprintf("%s %s\n", checksum, filename)))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -234,18 +243,26 @@ func (bc *BagitCreator) createManifestsAndTags() (err error) {
 }
 
 // write manifest files from temp folder to zip
-func (bc *BagitCreator) writeManifestToZip(zipWriter *zip.Writer) error {
+func (bc *BagitCreator) writeManifestToZip(zipWriter *zip.Writer) (map[string]map[string]string, error) {
+	csFiles := map[string]map[string]string{}
+
 	for _, cType := range bc.checksum {
+		csFiles[cType] = map[string]string{}
+	}
+
+	for _, cType := range bc.checksum {
+		csFiles[cType] = map[string]string{}
+
 		manifestfile := fmt.Sprintf("manifest-%s.txt", cType)
 		bc.logger.Infof("storing %s", manifestfile)
 		mfilename := filepath.Join(bc.tempdir, manifestfile)
 		info, err := os.Stat(mfilename)
 		if err != nil {
-			return emperror.Wrapf(err, "cannot stat %v", mfilename)
+			return nil, emperror.Wrapf(err, "cannot stat %v", mfilename)
 		}
 		header, err := zip.FileInfoHeader(info)
 		if err != nil {
-			return emperror.Wrap(err, "cannot create zip.FileInfoHeader")
+			return nil, emperror.Wrap(err, "cannot create zip.FileInfoHeader")
 		}
 		// we write only to the data subfolder
 		header.Name = fmt.Sprintf("manifest-%s.txt", cType)
@@ -255,20 +272,30 @@ func (bc *BagitCreator) writeManifestToZip(zipWriter *zip.Writer) error {
 
 		zWriter, err := zipWriter.CreateHeader(header)
 		if err != nil {
-			return emperror.Wrap(err, "cannot write header to zip")
+			return nil, emperror.Wrap(err, "cannot write header to zip")
 		}
 
 		reader, err := os.Open(mfilename)
 		if err != nil {
-			return emperror.Wrapf(err, "cannot open %v", mfilename)
+			return nil, emperror.Wrapf(err, "cannot open %v", mfilename)
 		}
 		defer reader.Close()
-		_, err = io.Copy(zWriter, reader)
+
+		checksums, err := ChecksumCopy(zWriter, reader, bc.checksum)
 		if err != nil {
-			return emperror.Wrapf(err, "cannot write %v to zip", mfilename)
+			return nil, emperror.Wrapf(err, "cannot write data to zip")
 		}
+		for mcType, cs := range checksums {
+			csFiles[mcType][manifestfile] = cs
+		}
+		/*
+			_, err = io.Copy(zWriter, reader)
+			if err != nil {
+				return emperror.Wrapf(err, "cannot write %v to zip", mfilename)
+			}
+		*/
 	}
-	return nil
+	return csFiles, nil
 }
 
 func (bc *BagitCreator) writeMetainfoToZip(zipWriter *zip.Writer) (map[string]string, error) {
@@ -345,6 +372,7 @@ func (bc *BagitCreator) writeBaginfoToZip(zipWriter *zip.Writer) (map[string]str
 	bc.bagInfo["Bag-Software-Agent"] = fmt.Sprintf("%s", NAME)
 	bc.bagInfo["Bagging-Date"] = time.Now().Format("2006-01-02")
 	bc.bagInfo["Payload-Oxum"] = fmt.Sprintf("%v.%v", bc.oxumOctetCount, bc.oxumStreamCount)
+	bc.bagInfo["Bag-Size"] = humanize.Bytes(uint64(bc.oxumOctetCount))
 	re := regexp.MustCompile(`\r?\n`)
 	buf := bytes.NewBufferString("")
 	for key, val := range bc.bagInfo {
@@ -356,12 +384,12 @@ func (bc *BagitCreator) writeBaginfoToZip(zipWriter *zip.Writer) (map[string]str
 	return ChecksumCopy(writer, reader, bc.checksum)
 }
 
-func (bc *BagitCreator) writeBagitToZip(zipWriter *zip.Writer) (error) {
+func (bc *BagitCreator) writeBagitToZip(zipWriter *zip.Writer) error {
 	writer, err := zipWriter.Create("bagit.txt")
 	if err != nil {
 		return emperror.Wrap(err, "cannot create bagit.txt in zip")
 	}
-	if _, err := io.WriteString(writer, fmt.Sprintf("BagIt-Version: %s\n", BAGITVERSION )); err != nil {
+	if _, err := io.WriteString(writer, fmt.Sprintf("BagIt-Version: %s\n", BAGITVERSION)); err != nil {
 		return emperror.Wrapf(err, "cannot write to bagit.txt")
 	}
 	if _, err := io.WriteString(writer, "Tag-File-Character-Encoding: UTF-8\n"); err != nil {
@@ -369,7 +397,6 @@ func (bc *BagitCreator) writeBagitToZip(zipWriter *zip.Writer) (error) {
 	}
 	return nil
 }
-
 
 // called by file walker.
 func (bc *BagitCreator) visitFile(path string, f os.FileInfo, zipWriter *zip.Writer, txn *badger.Txn, err error) error {

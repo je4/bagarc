@@ -64,7 +64,12 @@ func main() {
 	go func() {
 		scanner := bufio.NewScanner(pr)
 		for scanner.Scan() {
-			wsHandler.send("console", scanner.Text())
+			wsHandler.send("console", struct {
+				Type   string
+				Msg string
+			}{
+				"console", scanner.Text(),
+			})
 		}
 	}()
 

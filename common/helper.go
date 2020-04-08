@@ -28,7 +28,12 @@ func CreateLogger(module string, logfile string, w *io.PipeWriter, loglevel stri
 	} else {
 		lf = os.Stderr
 	}
-	w2 := io.MultiWriter(w, lf)
+	var w2 io.Writer
+	if w != nil {
+		w2 = io.MultiWriter(w, lf)
+	} else {
+		w2 = lf
+	}
 	backend := logging.NewLogBackend(w2, "", 0)
 	backendLeveled := logging.AddModuleLevel(backend)
 	backendLeveled.SetLevel(logging.GetLevel(loglevel), "")

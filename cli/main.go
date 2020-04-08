@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/BurntSushi/toml"
 	"github.com/dgraph-io/badger"
 	_ "github.com/dgraph-io/badger"
 	"github.com/je4/bagarc/bagit"
@@ -56,7 +57,7 @@ func main() {
 		}
 	})
 
-	logger, lf := common.CreateLogger("bagit", conf.Logfile, conf.Loglevel, conf.Logformat)
+	logger, lf := common.CreateLogger("bagit", conf.Logfile, nil, conf.Loglevel, conf.Logformat)
 	defer lf.Close()
 
 	switch *action {
@@ -133,7 +134,10 @@ func main() {
 				logger.Fatalf("cannot read bag info file %s", *bagInfoFile)
 			}
 			if err := json.Unmarshal(data, &bagInfo); err != nil {
-				logger.Fatalf("cannot unmarshal bag info file %s: %v", *bagInfoFile, err)
+				_, err2 := toml.DecodeFile(*bagInfoFile, &bagInfo)
+				if err2 != nil {
+					logger.Fatalf("cannot unmarshal or read bag info file %s: %v // %v", *bagInfoFile, err, err2)
+				}
 			}
 		}
 
