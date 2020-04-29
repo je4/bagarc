@@ -15,8 +15,8 @@ Cleanup = false
 # checksums which need to be created for bagit
 Checksum  = ["md5", "sha512"]
 
-# url to call siegfried service [[PATH]] will be replaced with filename
-Siegfried = "http://localhost:5138/identify/[[PATH]]?format=json"
+# url to call indexer service [[PATH]] will be replaced with filename
+Indexer = "http://localhost:81"
 
 # rename filenames with characters which should be avoided
 FixFilenames = true

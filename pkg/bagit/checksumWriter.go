@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goph/emperror"
-	"github.com/je4/bagarc/common"
+	"github.com/je4/bagarc/pkg/common"
 	"golang.org/x/crypto/sha3"
 	"hash"
 	"io"

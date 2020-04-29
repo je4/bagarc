@@ -27,7 +27,7 @@ type BagitCreator struct {
 	bagitfile       string            // resultung bagit zip file
 	checksum        []string          // list of checksums to create
 	db              *badger.DB        // file storage
-	siegfried       string            // url for siegfried daemon
+	indexer         string            // url for indexer daemon
 	tempdir         string            // folder for temporary files
 	fixFilename     bool              // true, if filenames should be corrected
 	bagInfo         map[string]string // list of entries for bag-info.txt
@@ -42,7 +42,7 @@ type rwStruct struct {
 }
 
 // creates a new bagit creation structure
-func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map[string]string, db *badger.DB, fixFilename bool, storeOnly []string, siegfried string, tempdir string, logger *logging.Logger) (*BagitCreator, error) {
+func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map[string]string, db *badger.DB, fixFilename bool, storeOnly []string, indexer string, tempdir string, logger *logging.Logger) (*BagitCreator, error) {
 	sourcedir = filepath.ToSlash(filepath.Clean(sourcedir))
 	bagitfile = filepath.ToSlash(filepath.Clean(bagitfile))
 	// make sure, that file does not exist...
@@ -58,7 +58,7 @@ func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map
 		checksum:    checksum,
 		db:          db,
 		fixFilename: fixFilename,
-		siegfried:   siegfried,
+		indexer:     indexer,
 		tempdir:     tempdir,
 		bagInfo:     bagInfo,
 		storeOnly:   storeOnly,
@@ -398,6 +398,40 @@ func (bc *BagitCreator) writeBagitToZip(zipWriter *zip.Writer) error {
 	return nil
 }
 
+func (bc *BagitCreator) doCompress(meta map[string]interface{}) (bool, error) {
+	// checkManifest wether compression should be avoided
+	sf, ok := meta["siegfried"]
+	if !ok {
+		return false, errors.New("no siegfried data from indexer")
+	}
+	sflist, ok := sf.([]interface{})
+	if !ok {
+		return false, errors.New("siegfried not an array")
+	}
+	if len(sflist) == 0 {
+		return false, errors.New("siegfried is an empty array")
+	}
+	sf0, ok := sflist[0].(map[string]interface{})
+	if !ok {
+		return false, errors.New("sf0 not a string map")
+	}
+	sf0id, ok := sf0["id"]
+	if !ok {
+		return false, errors.New("no id in siegfried")
+	}
+	sfid, ok := sf0id.(string)
+	if !ok {
+		return false, errors.New("id in siegfried not a string")
+	}
+
+	for _, nc := range bc.storeOnly {
+		if nc == sfid {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // called by file walker.
 func (bc *BagitCreator) visitFile(path string, f os.FileInfo, zipWriter *zip.Writer, txn *badger.Txn, err error) error {
 	bf, err := NewBagitFile(bc.sourcedir, path, bc.fixFilename)
@@ -410,20 +444,17 @@ func (bc *BagitCreator) visitFile(path string, f os.FileInfo, zipWriter *zip.Wri
 	}
 
 	compression := zip.Deflate
-	if bc.siegfried != "" {
-		if err := bf.GetSiegfried(bc.siegfried); err != nil {
-			bc.logger.Errorf("error querying siegfried: %v", err)
+	if bc.indexer != "" {
+		if err := bf.GetIndexer(bc.indexer); err != nil {
+			bc.logger.Errorf("error querying indexer: %v", err)
 		} else {
-			// checkManifest wether compression should be avoided
-			if len(bf.Siegfried) > 0 {
-				id := bf.Siegfried[0].Id
-				for _, nc := range bc.storeOnly {
-					if nc == id {
-						compression = zip.Store
-						break
-					}
+			dc, error := bc.doCompress(bf.Indexer)
+			if error == nil {
+				if !dc {
+					compression = zip.Store
 				}
 			}
+
 		}
 	}
 	if err := bf.AddToZip(zipWriter, bc.checksum, compression); err != nil {

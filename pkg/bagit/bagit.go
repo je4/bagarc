@@ -33,6 +33,7 @@ type Bagit struct {
 	bagitfile string     // zip to checkManifest
 	db        *badger.DB // file storage
 	tmpdir    string     // folder for temporary files
+	indexer   string
 }
 
 func NewBagit(bagitFile string, tmpdir string, db *badger.DB, logger *logging.Logger) (*Bagit, error) {
@@ -356,9 +357,9 @@ func (bagit *Bagit) extract(zipReader *zip.ReadCloser, targetFolder string, rest
 		err := func() error {
 			targetFilename := f.Name
 			slashName := filepath.ToSlash(f.Name)
-			if strings.HasPrefix(slashName, "data/" ) && restoreFilenames {
+			if strings.HasPrefix(slashName, "data/") && restoreFilenames {
 				bagit.db.View(func(txn *badger.Txn) error {
-					key := fmt.Sprintf( "rename:%s", strings.TrimPrefix(slashName, "data/"))
+					key := fmt.Sprintf("rename:%s", strings.TrimPrefix(slashName, "data/"))
 					val, err := txn.Get([]byte(key))
 					if err != nil {
 						return err

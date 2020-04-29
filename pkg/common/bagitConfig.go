@@ -24,7 +24,7 @@ type BagitConfig struct {
 	Logformat    string   `toml:"logformat"`
 	Checksum     []string `toml:"checksum"`
 	Tempdir      string   `toml:"tempdir"`
-	Siegfried    string   `toml:"siegfried"`
+	Indexer      string   `toml:"indexer"`
 	FixFilenames bool     `toml:"fixfilenames"`
 	StoreOnly    []string `toml:"nocompress"`
 	Cleanup      bool     `toml:"cleanup"`

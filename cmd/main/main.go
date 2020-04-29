@@ -5,8 +5,8 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/dgraph-io/badger"
 	_ "github.com/dgraph-io/badger"
-	"github.com/je4/bagarc/bagit"
-	"github.com/je4/bagarc/common"
+	"github.com/je4/bagarc/pkg/bagit"
+	"github.com/je4/bagarc/pkg/common"
 	flag "github.com/spf13/pflag"
 	"io/ioutil"
 	"log"
@@ -21,7 +21,7 @@ func main() {
 	var configfile = flag.String("cfg", "/etc/bagit.toml", "configuration file")
 	var tempdir = flag.String("temp", "/tmp", "folder for temporary files")
 	var checksum = flag.StringArray("checksum", []string{"md5", "sha512"}, "checksum algorithms to use (md5|sha256|sha512)")
-	var siegfried = flag.String("sf", "", "url for siegfried [[PATH]] is placeholder for local file reference")
+	var indexer = flag.String("indexer", "", "url for indexer")
 	var fixFilenames = flag.Bool("fixfilenames", true, "set this flag, if filenames should be corrected")
 	var bagInfoFile = flag.String("baginfo", "", "json file with bag-info entries (only string, no hierarchy)")
 	var cleanup = flag.Bool("cleanup", false, "remove temporary files after bagit creation")
@@ -48,8 +48,8 @@ func main() {
 			conf.Tempdir = *tempdir
 		case "checksum":
 			conf.Checksum = *checksum
-		case "siegfried":
-			conf.Siegfried = *siegfried
+		case "indexer":
+			conf.Indexer = *indexer
 		case "fixfilenames":
 			conf.FixFilenames = *fixFilenames
 		case "cleanup":
@@ -141,7 +141,7 @@ func main() {
 			}
 		}
 
-		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.StoreOnly, conf.Siegfried, tmpdir, logger)
+		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.StoreOnly, conf.Indexer, tmpdir, logger)
 		if err != nil {
 			log.Fatalf("cannot create BagitCreator: %v", err)
 			return

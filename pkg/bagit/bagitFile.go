@@ -2,13 +2,13 @@ package bagit
 
 import (
 	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/goph/emperror"
-	"github.com/je4/bagarc/common"
+	"github.com/je4/bagarc/pkg/common"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +20,8 @@ type BagitFile struct {
 	ZipPath     string            `json:"zippath"`
 	Checksum    map[string]string `json:"checksum"`
 	Size        int64             `json:"size"`
-	Siegfried   []SFMatches       `json:"siegfried,omitempty"`
+	//Siegfried   []SFMatches       `json:"indexer,omitempty"`
+	Indexer map[string]interface{} `json:"indexer,omitempty"`
 	baseDir     string            `json:"-"`
 	info        os.FileInfo       `json:"-"`
 	resultMutex sync.Mutex        `json:"-"`
@@ -51,7 +52,7 @@ type SFFiles struct {
 }
 
 type SF struct {
-	Siegfried   string         `json:"siegfried,omitempty"`
+	Siegfried   string         `json:"indexer,omitempty"`
 	Scandate    string         `json:"scandate,omitempty"`
 	Signature   string         `json:"signature,omitempty"`
 	Created     string         `json:"created,omitempty"`
@@ -126,31 +127,34 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string, compress
 	return nil
 }
 
-func (bf *BagitFile) GetSiegfried(siegfried string) error {
+func (bf *BagitFile) GetIndexer(indexer string) error {
+	var query struct {
+		Url string `json:"url"`
+		Action []string `json:"action,omitempty"`
+		Downloadmime string `json:"downloadmime,omitempty"`
+		Headersize int64  `json:"headersize,omitempty"`
+	}
+	var result map[string]interface{}
 
-	urlstring := strings.Replace(siegfried, "[[PATH]]", url.QueryEscape(filepath.Join(bf.baseDir, bf.Path)), -1)
-
-	resp, err := http.Get(urlstring)
+	query.Url = fmt.Sprintf("file:///%s", filepath.ToSlash(filepath.Join(bf.baseDir, bf.Path)))
+	jsonstr, err := json.Marshal(query)
 	if err != nil {
-		return emperror.Wrapf(err, "cannot query siegfried - %v", urlstring)
+		return emperror.Wrapf(err, "cannot marshal json")
+	}
+	resp, err := http.Post(indexer, "application/json", bytes.NewBuffer(jsonstr))
+	if err != nil {
+		return emperror.Wrapf(err, "error calling call indexer")
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return emperror.Wrapf(err, "status not ok - %v -> %v", urlstring, resp.Status)
-	}
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return emperror.Wrapf(err, "error reading body - %v", urlstring)
+		return emperror.Wrapf(err, "error reading indexer result")
+	}
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		return emperror.Wrapf(err, "cannot unmarshal result")
 	}
 
-	sf := SF{}
-	err = json.Unmarshal(bodyBytes, &sf)
-	if err != nil {
-		return emperror.Wrapf(err, "error decoding json - %v", string(bodyBytes))
-	}
-	if len(sf.Files) == 0 {
-		return emperror.Wrapf(err, "no file in sf result - %v", string(bodyBytes))
-	}
-	bf.Siegfried = sf.Files[0].Matches
+	bf.Indexer = result
+
 	return nil
 }
