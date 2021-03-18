@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/goph/emperror"
-	"github.com/je4/bagarc/pkg/common"
+	"github.com/je4/bagarc/v2/pkg/common"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -16,16 +16,16 @@ import (
 )
 
 type BagitFile struct {
-	Path        string            `json:"path"`
-	ZipPath     string            `json:"zippath"`
-	Checksum    map[string]string `json:"checksum"`
-	Size        int64             `json:"size"`
+	Path     string            `json:"path"`
+	ZipPath  string            `json:"zippath"`
+	Checksum map[string]string `json:"checksum"`
+	Size     int64             `json:"size"`
 	//Siegfried   []SFMatches       `json:"indexer,omitempty"`
-	Indexer map[string]interface{} `json:"indexer,omitempty"`
-	baseDir     string            `json:"-"`
-	info        os.FileInfo       `json:"-"`
-	resultMutex sync.Mutex        `json:"-"`
-	errors      []error           `json:"-"`
+	Indexer     map[string]interface{} `json:"indexer,omitempty"`
+	baseDir     string                 `json:"-"`
+	info        os.FileInfo            `json:"-"`
+	resultMutex sync.Mutex             `json:"-"`
+	errors      []error                `json:"-"`
 }
 
 type SFIdentifier struct {
@@ -114,7 +114,6 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string, compress
 	// make sure, that compression is ok
 	header.Method = compression
 
-
 	zWriter, err := zipWriter.CreateHeader(header)
 	if err != nil {
 		return emperror.Wrap(err, "cannot write header to zip")
@@ -129,10 +128,10 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string, compress
 
 func (bf *BagitFile) GetIndexer(indexer string) error {
 	var query struct {
-		Url string `json:"url"`
-		Action []string `json:"action,omitempty"`
-		Downloadmime string `json:"downloadmime,omitempty"`
-		Headersize int64  `json:"headersize,omitempty"`
+		Url          string   `json:"url"`
+		Action       []string `json:"action,omitempty"`
+		Downloadmime string   `json:"downloadmime,omitempty"`
+		Headersize   int64    `json:"headersize,omitempty"`
 	}
 	var result map[string]interface{}
 

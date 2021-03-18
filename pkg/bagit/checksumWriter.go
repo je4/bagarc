@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goph/emperror"
-	"github.com/je4/bagarc/pkg/common"
+	"github.com/je4/bagarc/v2/pkg/common"
 	"golang.org/x/crypto/sha3"
 	"hash"
 	"io"
@@ -37,12 +37,12 @@ func NewChecksumWriter(checksums []string) *ChecksumWriter {
 	return c
 }
 
-func ChecksumCopy(dst io.Writer, src io.Reader, checksums[]string) (map[string]string, error) {
+func ChecksumCopy(dst io.Writer, src io.Reader, checksums []string) (map[string]string, error) {
 	cw := NewChecksumWriter(checksums)
 	return cw.Copy(dst, src)
 }
 
-func Checksum( src io.Reader, checksum string ) (string, error) {
+func Checksum(src io.Reader, checksum string) (string, error) {
 	var sink hash.Hash
 	switch checksum {
 	case "md5":
@@ -132,7 +132,7 @@ func (c *ChecksumWriter) Copy(dst io.Writer, src io.Reader) (map[string]string, 
 
 	c.clear()
 
-	done := make( chan bool )
+	done := make(chan bool)
 	// create the map of all ChecksumWriter-pipes and start async process
 	for _, csType := range c.checksums {
 		rw := rwStruct{}

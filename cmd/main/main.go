@@ -5,8 +5,8 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/dgraph-io/badger"
 	_ "github.com/dgraph-io/badger"
-	"github.com/je4/bagarc/pkg/bagit"
-	"github.com/je4/bagarc/pkg/common"
+	"github.com/je4/bagarc/v2/pkg/bagit"
+	"github.com/je4/bagarc/v2/pkg/common"
 	flag "github.com/spf13/pflag"
 	"io/ioutil"
 	"log"
@@ -26,7 +26,7 @@ func main() {
 	var bagInfoFile = flag.String("baginfo", "", "json file with bag-info entries (only string, no hierarchy)")
 	var cleanup = flag.Bool("cleanup", false, "remove temporary files after bagit creation")
 	var restoreFilenames = flag.Bool("restorefilenames", true, "rename strange characters back while extracting")
-	var outputFolder  = flag.String("output", ".", "folder in which output structure has to be copied")
+	var outputFolder = flag.String("output", ".", "folder in which output structure has to be copied")
 
 	flag.Parse()
 

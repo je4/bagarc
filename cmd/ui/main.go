@@ -8,7 +8,7 @@ import (
 	"github.com/dgraph-io/badger"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/je4/bagarc/common"
+	"github.com/je4/bagarc/v2/common"
 	"github.com/mash/go-accesslog"
 	"io"
 	"log"
