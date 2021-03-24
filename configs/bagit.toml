@@ -3,11 +3,11 @@ TLS = false
 
 Logfile = ""
 Loglevel = "DEBUG"
-Logformat = "%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} > %{level:.5s} - %{message}"
+Logformat = "%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} [%{shortfile}] > %{level:.5s} - %{message}"
 
-Tempdir = "c:/temp"
-Basedir = "c:/temp"
-DBFolder = "c:/temp/badger"
+Tempdir = "c:/temp/bagit"
+Basedir = "c:/temp/bagit"
+DBFolder = "c:/temp/bagit/badger"
 
 # remove temporary files after bagit creation
 Cleanup = false
@@ -16,10 +16,24 @@ Cleanup = false
 Checksum  = ["md5", "sha512"]
 
 # url to call indexer service [[PATH]] will be replaced with filename
-Indexer = "http://localhost:81"
+#Indexer = "http://localhost:81"
 
 # rename filenames with characters which should be avoided
 FixFilenames = true
 
 # list of pronom id's which should be stored without compression
 Nocompress = ["fmt/17", "fmt/353"]  # pdf, tiff
+
+[tunnel.main]
+    user = "root"
+    privatekey = "C:/daten/keys/putty_ed25519.priv.openssh"
+    endpoint = "ba14ns21403.fhnw.ch:22"
+    [tunnel.main.forward.mysql]
+        local = "localhost:3308"
+        remote = "v000306.adm.ds.fhnw.ch:3306"
+
+[db]
+    #[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]
+    dsn = "tbbs:hcpOLPk64DtgNXLR@tcp(localhost:3308)/tbbs"
+    connMaxTimeout = "4h"
+    schema = "test"

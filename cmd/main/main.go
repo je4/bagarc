@@ -1,22 +1,27 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"github.com/BurntSushi/toml"
 	"github.com/dgraph-io/badger"
 	_ "github.com/dgraph-io/badger"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/je4/bagarc/v2/pkg/bagit"
 	"github.com/je4/bagarc/v2/pkg/common"
+	"github.com/je4/sshtunnel/v2/pkg/sshtunnel"
 	flag "github.com/spf13/pflag"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func main() {
 	var action = flag.String("action", "bagit", "bagit|bagitcheck")
 	var sourcedir = flag.String("sourcedir", ".", "source folder with archive content")
+	var basedir = flag.String("basedir", ".", "base folder with archived bagit's")
 	var bagitfile = flag.String("bagit", "bagarc.zip", "target filename (bagit zip)")
 	var configfile = flag.String("cfg", "/etc/bagit.toml", "configuration file")
 	var tempdir = flag.String("temp", "/tmp", "folder for temporary files")
@@ -30,14 +35,14 @@ func main() {
 
 	flag.Parse()
 
-	var conf = &common.BagitConfig{
+	var conf = &BagitConfig{
 		Logfile:   "",
 		Loglevel:  "DEBUG",
 		Logformat: `%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} > %{level:.5s} - %{message}`,
 		Checksum:  []string{"md5", "sha512"},
 		Tempdir:   "/tmp",
 	}
-	if err := common.LoadBagitConfig(*configfile, conf); err != nil {
+	if err := LoadBagitConfig(*configfile, conf); err != nil {
 		log.Printf("cannot load config file: %v", err)
 	}
 
@@ -54,11 +59,73 @@ func main() {
 			conf.FixFilenames = *fixFilenames
 		case "cleanup":
 			conf.Cleanup = *cleanup
+		case "basedir":
+			conf.BaseDir = *basedir
 		}
 	})
 
 	logger, lf := common.CreateLogger("bagit", conf.Logfile, nil, conf.Loglevel, conf.Logformat)
 	defer lf.Close()
+
+	for name, tunnel := range conf.Tunnel {
+		logger.Infof("starting tunnel %s", name)
+
+		forwards := make(map[string]*sshtunnel.SourceDestination)
+		for fwname, fw := range tunnel.Forward {
+			forwards[fwname] = &sshtunnel.SourceDestination{
+				Local: &sshtunnel.Endpoint{
+					Host: fw.Local.Host,
+					Port: fw.Local.Port,
+				},
+				Remote: &sshtunnel.Endpoint{
+					Host: fw.Remote.Host,
+					Port: fw.Remote.Port,
+				},
+			}
+		}
+
+		t, err := sshtunnel.NewSSHTunnel(
+			tunnel.User,
+			tunnel.PrivateKey,
+			&sshtunnel.Endpoint{
+				Host: tunnel.Endpoint.Host,
+				Port: tunnel.Endpoint.Port,
+			},
+			forwards,
+			logger,
+		)
+		if err != nil {
+			logger.Errorf("cannot create tunnel %v@%v:%v - %v", tunnel.User, tunnel.Endpoint.Host, tunnel.Endpoint.Port, err)
+			return
+		}
+		if err := t.Start(); err != nil {
+			logger.Errorf("cannot create sshtunnel %v - %v", t.String(), err)
+			return
+		}
+		defer t.Close()
+	}
+	// if tunnels are made, wait until connection is established
+	if len(conf.Tunnel) > 0 {
+		time.Sleep(2 * time.Second)
+	}
+
+	var db *sql.DB
+	var err error
+	if conf.DB.DSN != "" {
+		logger.Debugf("connecting mysql database")
+		db, err = sql.Open("mysql", conf.DB.DSN)
+		if err != nil {
+			// don't write dsn in error message due to password inside
+			logger.Panicf("error connecting to database: %v", err)
+			return
+		}
+		defer db.Close()
+		if err := db.Ping(); err != nil {
+			logger.Panicf("cannot ping database: %v", err)
+			return
+		}
+		db.SetConnMaxLifetime(time.Duration(conf.DB.ConnMaxTimeout.Duration))
+	}
 
 	switch *action {
 	case "check":
@@ -143,11 +210,21 @@ func main() {
 
 		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.StoreOnly, conf.Indexer, tmpdir, logger)
 		if err != nil {
-			log.Fatalf("cannot create BagitCreator: %v", err)
+			logger.Fatalf("cannot create BagitCreator: %v", err)
 			return
 		}
 		if err := creator.Run(); err != nil {
-			log.Fatalf("cannot create Bagit: %v", err)
+			logger.Fatalf("cannot create Bagit: %v", err)
+		}
+	case "ingest":
+		bi, err := bagit.NewBagitIngest(conf.BaseDir, db, logger)
+		if err != nil {
+			logger.Fatalf("cannot create BagitIngest: %v", err)
+			return
+		}
+		if err := bi.Run(); err != nil {
+			logger.Fatalf("cannot ingest: %v", err)
+			return
 		}
 	default:
 	}
