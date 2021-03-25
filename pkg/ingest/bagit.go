@@ -3,6 +3,7 @@ package ingest
 import "time"
 
 type Bagit struct {
+	ingest       *Ingest
 	id           int64
 	name         string
 	size         int64
