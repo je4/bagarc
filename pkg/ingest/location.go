@@ -14,9 +14,14 @@ type Location struct {
 }
 
 func (loc *Location) HasBagit(bagit *Bagit) (bool, error) {
-	return loc.ingest.HasBagit(loc, bagit)
+	return loc.ingest.hasBagit(loc, bagit)
 }
 
 func (loc *Location) LoadTransfer(bagit *Bagit) (*Transfer, error) {
-	return loc.ingest.LoadTransfer(loc, bagit)
+	return loc.ingest.TransferLoad(loc, bagit)
+}
+
+func (loc *Location) Store() error {
+	_, err := loc.ingest.locationStore(loc)
+	return err
 }

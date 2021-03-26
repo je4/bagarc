@@ -11,3 +11,8 @@ type Transfer struct {
 	status  string
 	message string
 }
+
+func (trans *Transfer) Store() error {
+	_, err := trans.ingest.transferStore(trans)
+	return err
+}

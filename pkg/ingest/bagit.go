@@ -13,3 +13,8 @@ type Bagit struct {
 	creator      string
 	creationdate time.Time
 }
+
+func (bagit *Bagit) Store() error {
+	_, err := bagit.ingest.bagitStore(bagit)
+	return err
+}
