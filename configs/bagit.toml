@@ -7,6 +7,7 @@ Logformat = "%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} [%{shortfil
 
 Tempdir = "c:/temp/bagit"
 Basedir = "c:/temp/bagit"
+Keydir = "c:/temp/bagit/keys"
 DBFolder = "c:/temp/bagit/badger"
 
 # remove temporary files after bagit creation

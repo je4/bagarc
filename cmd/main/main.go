@@ -217,7 +217,7 @@ func main() {
 			logger.Fatalf("cannot create Bagit: %v", err)
 		}
 	case "ingest":
-		bi, err := bagit.NewBagitIngest(conf.BaseDir, conf.Tempdir, db, conf.DB.Schema, logger)
+		bi, err := bagit.NewBagitIngest(conf.Tempdir, conf.KeyDir, db, conf.DB.Schema, logger)
 		if err != nil {
 			logger.Fatalf("cannot create BagitIngest: %v", err)
 			return

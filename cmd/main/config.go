@@ -70,6 +70,7 @@ type BagitConfig struct {
 	Logformat    string               `toml:"logformat"`
 	Checksum     []string             `toml:"checksum"`
 	Tempdir      string               `toml:"tempdir"`
+	KeyDir       string               `toml:"keydir"`
 	Indexer      string               `toml:"indexer"`
 	FixFilenames bool                 `toml:"fixfilenames"`
 	StoreOnly    []string             `toml:"nocompress"`
