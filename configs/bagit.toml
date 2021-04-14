@@ -37,4 +37,4 @@ Nocompress = ["fmt/17", "fmt/353"]  # pdf, tiff
     #[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]
     dsn = "tbbs:hcpOLPk64DtgNXLR@tcp(localhost:3308)/tbbs"
     connMaxTimeout = "4h"
-    schema = "test"
+    schema = "tbbs"

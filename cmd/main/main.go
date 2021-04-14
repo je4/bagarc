@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	var action = flag.String("action", "bagit", "bagit|bagitcheck")
+	var action = flag.String("action", "bagit", "bagit|bagitcheck|ingest")
 	var sourcedir = flag.String("sourcedir", ".", "source folder with archive content")
 	var basedir = flag.String("basedir", ".", "base folder with archived bagit's")
 	var bagitfile = flag.String("bagit", "bagarc.zip", "target filename (bagit zip)")
