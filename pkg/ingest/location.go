@@ -7,7 +7,6 @@ type Location struct {
 	id        int64
 	name      string
 	path      *url.URL
-	typ       string
 	params    string
 	encrypted bool
 	quality   float64

@@ -20,9 +20,10 @@ type BagitIngest struct {
 	logger  *logging.Logger
 	ingest  *ingest.Ingest
 	keyDir  string
+	initLoc string
 }
 
-func NewBagitIngest(tempDir, keyDir string, db *sql.DB, dbschema string, logger *logging.Logger) (*BagitIngest, error) {
+func NewBagitIngest(tempDir, keyDir, initLoc string, db *sql.DB, dbschema string, logger *logging.Logger) (*BagitIngest, error) {
 	i, err := ingest.NewIngest(db, dbschema)
 	if err != nil {
 		return nil, err
@@ -32,6 +33,7 @@ func NewBagitIngest(tempDir, keyDir string, db *sql.DB, dbschema string, logger 
 		keyDir:  keyDir,
 		logger:  logger,
 		ingest:  i,
+		initLoc: initLoc,
 	}
 	return bi, nil
 }
@@ -45,9 +47,14 @@ func (bi *BagitIngest) Run() error {
 }
 
 func (bi *BagitIngest) RunInit() error {
-	initLoc, err := bi.ingest.LocationInit()
+	locations, err := bi.ingest.LocationLoadAll()
 	if err != nil {
-		return emperror.Wrap(err, "cannot get init location")
+		return emperror.Wrapf(err, "cannot load locations")
+	}
+
+	initLoc, ok := locations[bi.initLoc]
+	if !ok {
+		return fmt.Errorf("cannot get init location %s", bi.initLoc)
 	}
 
 	fp := strings.Trim(initLoc.GetPath().Path, "/") + "/"

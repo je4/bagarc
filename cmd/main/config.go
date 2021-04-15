@@ -60,25 +60,26 @@ type DBMySQL struct {
 
 // main config structure for toml file
 type BagitConfig struct {
-	CertChain    string               `toml:"*certchain"`
-	PrivateKey   string               `toml:"privatekey"`
-	Listen       string               `toml:"listen"`
-	TLS          bool                 `toml:"tls"`
-	AccessLog    string               `toml:"accesslog"`
-	Logfile      string               `toml:"logfile"`
-	Loglevel     string               `toml:"loglevel"`
-	Logformat    string               `toml:"logformat"`
-	Checksum     []string             `toml:"checksum"`
-	Tempdir      string               `toml:"tempdir"`
-	KeyDir       string               `toml:"keydir"`
-	Indexer      string               `toml:"indexer"`
-	FixFilenames bool                 `toml:"fixfilenames"`
-	StoreOnly    []string             `toml:"nocompress"`
-	Cleanup      bool                 `toml:"cleanup"`
-	DBFolder     string               `toml:"dbfolder"`
-	BaseDir      string               `toml:"basedir"`
-	Tunnel       map[string]SSHTunnel `toml:"tunnel"`
-	DB           DBMySQL              `toml:"db"`
+	CertChain      string               `toml:"*certchain"`
+	PrivateKey     string               `toml:"privatekey"`
+	Listen         string               `toml:"listen"`
+	TLS            bool                 `toml:"tls"`
+	AccessLog      string               `toml:"accesslog"`
+	Logfile        string               `toml:"logfile"`
+	Loglevel       string               `toml:"loglevel"`
+	Logformat      string               `toml:"logformat"`
+	Checksum       []string             `toml:"checksum"`
+	Tempdir        string               `toml:"tempdir"`
+	KeyDir         string               `toml:"keydir"`
+	Indexer        string               `toml:"indexer"`
+	FixFilenames   bool                 `toml:"fixfilenames"`
+	StoreOnly      []string             `toml:"nocompress"`
+	Cleanup        bool                 `toml:"cleanup"`
+	DBFolder       string               `toml:"dbfolder"`
+	BaseDir        string               `toml:"basedir"`
+	Tunnel         map[string]SSHTunnel `toml:"tunnel"`
+	DB             DBMySQL              `toml:"db"`
+	IngestLocation string               `toml:"ingestloc"`
 }
 
 func LoadBagitConfig(fp string, conf *BagitConfig) error {

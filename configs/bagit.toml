@@ -25,6 +25,9 @@ FixFilenames = true
 # list of pronom id's which should be stored without compression
 Nocompress = ["fmt/17", "fmt/353"]  # pdf, tiff
 
+#ingest only stuff
+ingestloc = "temp"
+
 [tunnel.main]
     user = "root"
     privatekey = "C:/daten/keys/putty_ed25519.priv.openssh"
