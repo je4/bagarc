@@ -1,6 +1,10 @@
 package common
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"github.com/goph/emperror"
 	"github.com/op/go-logging"
 	"io"
 	"os"
@@ -13,6 +17,59 @@ type NullWriter struct{}
 
 func (w *NullWriter) Write(b []byte) (int, error) {
 	return len(b), nil
+}
+
+type BlockReader struct {
+	buf   []byte
+	block cipher.BlockMode
+	in    io.Reader
+}
+
+func NewBlockReader(blockMode cipher.BlockMode, reader io.Reader) *BlockReader {
+	return &BlockReader{
+		block: blockMode,
+		in:    reader,
+	}
+}
+
+func (b *BlockReader) Read(p []byte) (n int, err error) {
+	toRead := len(p)
+	mul := toRead / b.block.BlockSize()
+	size := mul * b.block.BlockSize()
+	if cap(b.buf) != size {
+		b.buf = make([]byte, toRead, toRead)
+	}
+
+	read, err := b.in.Read(b.buf)
+	if err != nil {
+		return 0, err
+	}
+
+	if read < b.block.BlockSize() {
+		return 0, io.ErrUnexpectedEOF
+	}
+	b.block.CryptBlocks(b.buf, b.buf)
+	return copy(p, b.buf), nil
+}
+
+func EncryptAES256(dst io.Writer, src io.Reader) (key, iv []byte, err error) {
+
+	key = make([]byte, 32)
+	iv = make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return nil, nil, emperror.Wrapf(err, "cannot generate 32 byte key for aes256")
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, nil, emperror.Wrapf(err, "cannot create aes256 cipher")
+	}
+	mode := cipher.NewCBCEncrypter(block, iv)
+	br := NewBlockReader(mode, src)
+	if _, err := io.Copy(dst, br); err != nil {
+		return nil, nil, emperror.Wrap(err, "cannot encrypt data")
+	}
+	return
 }
 
 func CreateLogger(module string, logfile string, w *io.PipeWriter, loglevel string, logformat string) (log *logging.Logger, lf *os.File) {
@@ -43,7 +100,6 @@ func CreateLogger(module string, logfile string, w *io.PipeWriter, loglevel stri
 
 	return
 }
-
 
 /**********************************************************************
  * 1) Forbid/escape ASCII control characters (bytes 1-31 and 127) in filenames, including newline, escape, and tab.
@@ -90,7 +146,7 @@ func FixFilename(fname string) string {
 	names := strings.Split(fname, "/")
 	result := []string{}
 
-	for _, n := range names{
+	for _, n := range names {
 		n = rule_1_5.ReplaceAllString(n, "_")
 		n = rule_2_4_6.ReplaceAllString(n, "$1")
 		result = append(result, n)
@@ -99,7 +155,7 @@ func FixFilename(fname string) string {
 	fname = filepath.ToSlash(filepath.Join(result...))
 	if len(result) > 0 {
 		if result[0] == "" {
-			fname = "/"+fname
+			fname = "/" + fname
 		}
 
 	}

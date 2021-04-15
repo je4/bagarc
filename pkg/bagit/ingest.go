@@ -1,19 +1,17 @@
 package bagit
 
 import (
-	"crypto/rand"
-	"crypto/sha512"
 	"database/sql"
 	"fmt"
 	"github.com/dgraph-io/badger"
 	"github.com/goph/emperror"
 	"github.com/je4/bagarc/v2/pkg/ingest"
 	"github.com/op/go-logging"
-	"io"
 	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -52,7 +50,12 @@ func (bi *BagitIngest) RunInit() error {
 		return emperror.Wrap(err, "cannot get init location")
 	}
 
-	fp := "/" + strings.Trim(initLoc.GetPath().Path, "/")
+	fp := strings.Trim(initLoc.GetPath().Path, "/") + "/"
+	if runtime.GOOS == "windows" {
+		fp = strings.Replace(fp, "|", ":", -1)
+	} else {
+		fp = "/" + fp
+	}
 	if err := filepath.Walk(fp, func(path string, info fs.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -66,8 +69,9 @@ func (bi *BagitIngest) RunInit() error {
 			return nil
 		}
 
-		bagitFile := filepath.Base(filepath.Join(fp, path))
-		tmpdir, err := ioutil.TempDir(bi.tempDir, bagitFile)
+		bagitFile := path
+
+		tmpdir, err := ioutil.TempDir(bi.tempDir, filepath.Base(bagitFile))
 		if err != nil {
 			return emperror.Wrapf(err, "cannot create temporary folder in %s", bi.tempDir)
 		}
@@ -112,24 +116,41 @@ func (bi *BagitIngest) RunInit() error {
 		}
 
 		// create checksum of bagit
-		bi.logger.Infof("calculating checksum of %s", bagitFile)
-		checksum := sha512.New()
+		//		bi.logger.Infof("calculating checksum of %s", bagitFile)
+		//		checksum := sha512.New()
 
-		key := make([]byte, 32)
-		iv := make([]byte, 32)
-		if _, err := rand.Read(key); err != nil {
-			return emperror.Wrapf(err, "cannot generate 32 byte key for aes256")
-		}
-
-		f, err := os.Open(bagitFile)
+		fin, err := os.Open(bagitFile)
 		if err != nil {
 			return emperror.Wrapf(err, "cannot open %s", bagitFile)
 		}
-		if _, err := io.Copy(checksum, f); err != nil {
-			f.Close()
-			return emperror.Wrapf(err, "cannot calculate checksum of %s", bagitFile)
+		defer fin.Close()
+		fout, err := os.OpenFile(bagitFile+".aes256", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+		if err != nil {
+			return emperror.Wrapf(err, "cannot create encrypted bagit %s", bagitFile+".aes256")
 		}
-		f.Close()
+		defer fout.Close()
+		if err != nil {
+			return emperror.Wrapf(err, "cannot open %s.aes", bagitFile)
+		}
+		defer fout.Close()
+
+		key, iv, hashBytes, err := ingest.Encrypt(fin, fout)
+		if err != nil {
+			return emperror.Wrapf(err, "cannot encrypt %s", bagitFile)
+		}
+
+		os.WriteFile(bagitFile+".aes256.key", []byte(fmt.Sprintf("%x", key)), 0600)
+		os.WriteFile(bagitFile+".aes256.iv", []byte(fmt.Sprintf("%x", iv)), 0600)
+
+		bi.logger.Infof("key: %x, iv: %x, hash: %x", key, iv, hashBytes)
+		bi.logger.Infof("decrypt using openssl: \n openssl enc -aes-256-ctr -nosalt -d -in %s.aes256 -out %s -K '%x' -iv '%x'", bagitFile, bagitFile, key, iv)
+
+		/*
+			if _, err := io.Copy(checksum, fin); err != nil {
+				return emperror.Wrapf(err, "cannot calculate checksum of %s", bagitFile)
+			}
+
+		*/
 
 		return nil
 	}); err != nil {
