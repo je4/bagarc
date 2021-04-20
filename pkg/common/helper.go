@@ -4,6 +4,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha512"
+	"fmt"
 	"github.com/goph/emperror"
 	"github.com/op/go-logging"
 	"io"
@@ -70,6 +72,19 @@ func EncryptAES256(dst io.Writer, src io.Reader) (key, iv []byte, err error) {
 		return nil, nil, emperror.Wrap(err, "cannot encrypt data")
 	}
 	return
+}
+
+func SHA512(filename string) (string, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return "", emperror.Wrapf(err, "cannot open %s", filename)
+	}
+	defer f.Close()
+	sha := sha512.New()
+	if _, err := io.Copy(sha, f); err != nil {
+		return "", emperror.Wrapf(err, "cannot read/calculate checksum of %s", filename)
+	}
+	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
 
 func CreateLogger(module string, logfile string, w *io.PipeWriter, loglevel string, logformat string) (log *logging.Logger, lf *os.File) {
