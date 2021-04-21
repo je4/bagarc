@@ -52,6 +52,11 @@ func (bi *BagitIngest) Init() error {
 		return emperror.Wrapf(err, "cannot load locations")
 	}
 
+	tests, err := bi.ingest.TestLoadAll()
+	if err != nil {
+		return emperror.Wrapf(err, "cannot load locations")
+	}
+
 	var ok bool
 	bi.initLoc, ok = locations[bi.initLocName]
 	if !ok {
