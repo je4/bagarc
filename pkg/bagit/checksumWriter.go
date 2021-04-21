@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goph/emperror"
-	"github.com/je4/bagarc/v2/pkg/common"
 	"golang.org/x/crypto/sha3"
 	"hash"
 	"io"
@@ -93,7 +92,7 @@ func (c *ChecksumWriter) doChecksum(reader io.Reader, csType string, done chan b
 		sink = sha3.New512()
 	default:
 		c.setError(errors.New(fmt.Sprintf("invalid hash function %s", csType)))
-		null := &common.NullWriter{}
+		null := &NullWriter{}
 		io.Copy(null, reader)
 		return
 	}

@@ -8,7 +8,6 @@ import (
 	_ "github.com/dgraph-io/badger"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/je4/bagarc/v2/pkg/bagit"
-	"github.com/je4/bagarc/v2/pkg/common"
 	"github.com/je4/sshtunnel/v2/pkg/sshtunnel"
 	flag "github.com/spf13/pflag"
 	"io/ioutil"
@@ -64,7 +63,7 @@ func main() {
 		}
 	})
 
-	logger, lf := common.CreateLogger("bagit", conf.Logfile, nil, conf.Loglevel, conf.Logformat)
+	logger, lf := bagit.CreateLogger("bagit", conf.Logfile, nil, conf.Loglevel, conf.Logformat)
 	defer lf.Close()
 
 	for name, tunnel := range conf.Tunnel {

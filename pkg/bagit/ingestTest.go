@@ -1,6 +1,6 @@
-package ingest
+package bagit
 
-type Test struct {
+type IngestTest struct {
 	ingest      *Ingest
 	id          int64
 	name        string

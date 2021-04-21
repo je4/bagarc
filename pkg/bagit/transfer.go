@@ -1,11 +1,11 @@
-package ingest
+package bagit
 
 import "time"
 
 type Transfer struct {
 	ingest  *Ingest
 	loc     *Location
-	bagit   *Bagit
+	bagit   *IngestBagit
 	start   time.Time
 	end     time.Time
 	status  string

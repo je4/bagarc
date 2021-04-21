@@ -1,4 +1,4 @@
-package ingest
+package bagit
 
 import (
 	"github.com/blend/go-sdk/crypto"

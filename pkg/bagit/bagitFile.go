@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/goph/emperror"
-	"github.com/je4/bagarc/v2/pkg/common"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -72,7 +71,7 @@ func NewBagitFile(baseDir, path string, fixFilename bool) (*BagitFile, error) {
 	}
 	newPath := path
 	if fixFilename {
-		newPath = common.FixFilename(path)
+		newPath = FixFilename(path)
 	}
 	var bf = &BagitFile{
 		Path:     path,

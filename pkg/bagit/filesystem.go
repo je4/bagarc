@@ -1,4 +1,4 @@
-package common
+package bagit
 
 import (
 	"github.com/goph/emperror"

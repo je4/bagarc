@@ -1,4 +1,4 @@
-package ingest
+package bagit
 
 import "net/url"
 
@@ -13,11 +13,11 @@ type Location struct {
 	costs     float64
 }
 
-func (loc *Location) HasBagit(bagit *Bagit) (bool, error) {
+func (loc *Location) HasBagit(bagit *IngestBagit) (bool, error) {
 	return loc.ingest.hasBagit(loc, bagit)
 }
 
-func (loc *Location) LoadTransfer(bagit *Bagit) (*Transfer, error) {
+func (loc *Location) LoadTransfer(bagit *IngestBagit) (*Transfer, error) {
 	return loc.ingest.TransferLoad(loc, bagit)
 }
 

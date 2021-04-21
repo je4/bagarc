@@ -1,4 +1,4 @@
-package ingest
+package bagit
 
 import (
 	"fmt"
@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-type Bagit struct {
+//
+// IngestBagit
+//
+type IngestBagit struct {
 	ingest       *Ingest
 	id           int64
 	name         string
@@ -18,21 +21,21 @@ type Bagit struct {
 	creationdate time.Time
 }
 
-func (bagit *Bagit) Store() error {
+func (bagit *IngestBagit) Store() error {
 	_, err := bagit.ingest.bagitStore(bagit)
 	return err
 }
 
-func (bagit *Bagit) ExistsAt(location *Location) (bool, error) {
+func (bagit *IngestBagit) ExistsAt(location *Location) (bool, error) {
 	return bagit.ingest.bagitExistsAt(bagit, location)
 }
 
-func (bagit *Bagit) StoreAt(location *Location, transfer_start, transfer_end time.Time, status, message string) error {
+func (bagit *IngestBagit) StoreAt(location *Location, transfer_start, transfer_end time.Time, status, message string) error {
 	err := bagit.ingest.bagitStoreAt(bagit, location, transfer_start, transfer_end, status, message)
 	return err
 }
 
-func (bagit *Bagit) Check(location *Location, checkInterval time.Duration) (bool, error) {
+func (bagit *IngestBagit) Check(location *Location, checkInterval time.Duration) (bool, error) {
 	exists, err := bagit.ExistsAt(location)
 	if err != nil {
 		return false, emperror.Wrapf(err, "cannot check bagit location %v", location.name)

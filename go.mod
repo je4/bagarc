@@ -12,6 +12,6 @@ require (
 	github.com/je4/sshtunnel/v2 v2.0.0-20210324104725-ab38247e5ffa
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/text v0.3.6
 )
