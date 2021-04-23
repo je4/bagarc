@@ -1,6 +1,6 @@
 Listen = "localhost:80"
 TLS = false
-
+PrivateKey = [ "C:/daten/keys/putty_ed25519.priv.openssh", "C:/daten/keys/putty_2048.priv.openssh" ]
 Logfile = ""
 Loglevel = "DEBUG"
 Logformat = "%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} [%{shortfile}] > %{level:.5s} - %{message}"

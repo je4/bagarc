@@ -4,7 +4,7 @@ import "time"
 
 type Transfer struct {
 	ingest  *Ingest
-	loc     *Location
+	loc     *IngestLocation
 	bagit   *IngestBagit
 	start   time.Time
 	end     time.Time

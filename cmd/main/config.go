@@ -61,7 +61,7 @@ type DBMySQL struct {
 // main config structure for toml file
 type BagitConfig struct {
 	CertChain      string               `toml:"*certchain"`
-	PrivateKey     string               `toml:"privatekey"`
+	PrivateKey     []string             `toml:"privatekey"`
 	Listen         string               `toml:"listen"`
 	TLS            bool                 `toml:"tls"`
 	AccessLog      string               `toml:"accesslog"`

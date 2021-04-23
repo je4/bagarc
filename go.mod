@@ -11,6 +11,7 @@ require (
 	github.com/goph/emperror v0.17.2
 	github.com/je4/sshtunnel/v2 v2.0.0-20210324104725-ab38247e5ffa
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
+	github.com/pkg/sftp v1.13.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/text v0.3.6

@@ -26,16 +26,11 @@ func (bagit *IngestBagit) Store() error {
 	return err
 }
 
-func (bagit *IngestBagit) ExistsAt(location *Location) (bool, error) {
+func (bagit *IngestBagit) ExistsAt(location *IngestLocation) (bool, error) {
 	return bagit.ingest.bagitExistsAt(bagit, location)
 }
 
-func (bagit *IngestBagit) StoreAt(location *Location, transfer_start, transfer_end time.Time, status, message string) error {
-	err := bagit.ingest.bagitStoreAt(bagit, location, transfer_start, transfer_end, status, message)
-	return err
-}
-
-func (bagit *IngestBagit) Check(location *Location, checkInterval time.Duration) (bool, error) {
+func (bagit *IngestBagit) Check(location *IngestLocation, checkInterval time.Duration) (bool, error) {
 	exists, err := bagit.ExistsAt(location)
 	if err != nil {
 		return false, emperror.Wrapf(err, "cannot check bagit location %v", location.name)
@@ -45,4 +40,8 @@ func (bagit *IngestBagit) Check(location *Location, checkInterval time.Duration)
 	}
 
 	return true, nil
+}
+
+func (bagit *IngestBagit) AddContent(zippath, diskpath string, filesize int64, sha256, sha512, md5 string) error {
+	return bagit.ingest.bagitAddContent(bagit, zippath, diskpath, filesize, sha256, sha512, md5)
 }

@@ -146,7 +146,7 @@ func main() {
 		}()
 
 		checker, err := bagit.NewBagit(*bagitfile, tmpdir, db, logger)
-		if err := checker.Check(); err != nil {
+		if err := checker.Check(nil); err != nil {
 			logger.Fatalf("error checking file: %v", err)
 		}
 	case "extract":
@@ -216,12 +216,16 @@ func main() {
 			logger.Fatalf("cannot create Bagit: %v", err)
 		}
 	case "ingest":
-		bi, err := bagit.NewBagitIngest(conf.Tempdir, conf.KeyDir, conf.IngestLocation, db, conf.DB.Schema, logger)
+		i, err := bagit.NewIngest(conf.Tempdir, conf.KeyDir, conf.IngestLocation, db, conf.DB.Schema, conf.PrivateKey, logger)
 		if err != nil {
 			logger.Fatalf("cannot create BagitIngest: %v", err)
 			return
 		}
-		if err := bi.Run(); err != nil {
+		if err := i.Ingest(); err != nil {
+			logger.Fatalf("cannot ingest: %v", err)
+			return
+		}
+		if err := i.Transfer(); err != nil {
 			logger.Fatalf("cannot ingest: %v", err)
 			return
 		}
