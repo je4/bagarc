@@ -13,6 +13,7 @@ require (
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/pkg/sftp v1.13.0
 	github.com/spf13/pflag v1.0.5
+	github.com/tidwall/transform v0.0.0-20201103190739-32f242e2dbde
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/text v0.3.6
 )

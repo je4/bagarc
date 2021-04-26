@@ -3,6 +3,8 @@ package bagit
 import (
 	"fmt"
 	"github.com/goph/emperror"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -44,4 +46,36 @@ func (bagit *IngestBagit) Check(location *IngestLocation, checkInterval time.Dur
 
 func (bagit *IngestBagit) AddContent(zippath, diskpath string, filesize int64, sha256, sha512, md5 string) error {
 	return bagit.ingest.bagitAddContent(bagit, zippath, diskpath, filesize, sha256, sha512, md5)
+}
+
+func (bagit *IngestBagit) GetKey() []byte {
+	key, err := os.ReadFile(filepath.Join(bagit.ingest.keyDir, bagit.name+".key"))
+	if err != nil {
+		return nil
+	}
+	return key
+}
+
+func (bagit *IngestBagit) SetKey(key []byte) error {
+	fname := filepath.Join(bagit.ingest.keyDir, bagit.name+".key")
+	if err := os.WriteFile(fname, key, 0600); err != nil {
+		return emperror.Wrapf(err, "cannot write file %s", fname)
+	}
+	return nil
+}
+
+func (bagit *IngestBagit) GetIV() []byte {
+	iv, err := os.ReadFile(filepath.Join(bagit.ingest.keyDir, bagit.name+".iv"))
+	if err != nil {
+		return nil
+	}
+	return iv
+}
+
+func (bagit *IngestBagit) SetIV(iv []byte) error {
+	fname := filepath.Join(bagit.ingest.keyDir, bagit.name+".iv")
+	if err := os.WriteFile(fname, iv, 0600); err != nil {
+		return emperror.Wrapf(err, "cannot write file %s", fname)
+	}
+	return nil
 }

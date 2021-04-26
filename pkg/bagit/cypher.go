@@ -1,7 +1,12 @@
 package bagit
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hmac"
+	"crypto/sha256"
 	"github.com/blend/go-sdk/crypto"
+	"github.com/blend/go-sdk/ex"
 	"github.com/goph/emperror"
 	"io"
 )
@@ -28,4 +33,20 @@ func Encrypt(in io.Reader, out io.Writer) ([]byte, []byte, []byte, error) {
 	}
 
 	return key, enc.IV, enc.Meta().Hash, nil
+}
+
+func CreateEncoder(in io.Reader, key, iv []byte) (*crypto.StreamEncrypter, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, ex.New(err)
+	}
+	stream := cipher.NewCTR(block, iv)
+	mac := hmac.New(sha256.New, key)
+	return &crypto.StreamEncrypter{
+		Source: in,
+		Block:  block,
+		Stream: stream,
+		Mac:    mac,
+		IV:     iv,
+	}, nil
 }

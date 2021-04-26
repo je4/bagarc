@@ -99,30 +99,47 @@ func (i *Ingest) TestLoadAll() (map[string]*IngestTest, error) {
 /* Database functions */
 
 func (i *Ingest) BagitLoadAll(fn func(bagit *IngestBagit) error) error {
-	sqlstr := fmt.Sprintf("SELECT bagitid, name, filesize, sha512, sha512_aes, creator, report FROM %s.bagit", i.schema)
+	const pageSize int64 = 100
+	sqlstr := fmt.Sprintf("SELECT COUNT(*) FROM %s.bagit", i.schema)
+	row := i.db.QueryRow(sqlstr)
+	var numRows int64
+	if err := row.Scan(&numRows); err != nil {
+		return emperror.Wrapf(err, "cannot get number of rows - %s", sqlstr)
+	}
 
-	rows, err := i.db.Query(sqlstr)
-	if err != nil {
-		return emperror.Wrapf(err, "cannot get locations %s", sqlstr)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		bagit := &IngestBagit{
-			ingest: i,
+	sqlstr = fmt.Sprintf("SELECT bagitid, name, filesize, sha512, sha512_aes, creator, report FROM %s.bagit LIMIT ?,?", i.schema)
+
+	var start int64
+	for start = 0; start < numRows; start += pageSize {
+		rows, err := i.db.Query(sqlstr, start, pageSize)
+		if err != nil {
+			return emperror.Wrapf(err, "cannot get locations %s", sqlstr)
 		}
-		var sha512_aes, report sql.NullString
-		if err := rows.Scan(&bagit.id, &bagit.name, &bagit.size, &bagit.sha512, &sha512_aes, &bagit.creator, &report); err != nil {
-			if err == sql.ErrNoRows {
-				return nil
+		var bagits []*IngestBagit
+		for rows.Next() {
+			bagit := &IngestBagit{
+				ingest: i,
 			}
-			return emperror.Wrapf(err, "cannot get bagit %s", sqlstr)
+			var sha512_aes, report sql.NullString
+			if err := rows.Scan(&bagit.id, &bagit.name, &bagit.size, &bagit.sha512, &sha512_aes, &bagit.creator, &report); err != nil {
+				rows.Close()
+				if err == sql.ErrNoRows {
+					return nil
+				}
+				return emperror.Wrapf(err, "cannot get bagit %s", sqlstr)
+			}
+			bagit.sha512_aes = sha512_aes.String
+			bagit.report = report.String
+			bagits = append(bagits, bagit)
 		}
-		bagit.sha512_aes = sha512_aes.String
-		bagit.report = report.String
-		if err := fn(bagit); err != nil {
-			return err
+		rows.Close()
+		for _, bagit := range bagits {
+			if err := fn(bagit); err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
@@ -258,8 +275,8 @@ func (i *Ingest) bagitStore(bagit *IngestBagit) (*IngestBagit, error) {
 
 		return bagit, nil
 	} else {
-		sqlstr := fmt.Sprintf("UPDATE %s.location SET name=?, filesize=?, sha512=?, sha512_aes=?, report=?, creator=?, creationdate=? WHERE bagitid=?", i.schema)
-		if _, err := i.db.Exec(sqlstr, bagit.name, bagit.size, bagit.sha512, bagit.sha512_aes, bagit.report, bagit.creator, bagit.creationdate, bagit.ingest); err != nil {
+		sqlstr := fmt.Sprintf("UPDATE %s.bagit SET name=?, filesize=?, sha512=?, sha512_aes=?, report=?, creator=?, creationdate=? WHERE bagitid=?", i.schema)
+		if _, err := i.db.Exec(sqlstr, bagit.name, bagit.size, bagit.sha512, bagit.sha512_aes, bagit.report, bagit.creator, bagit.creationdate, bagit.id); err != nil {
 			return nil, emperror.Wrapf(err, "cannot update bagit %s", sqlstr)
 		}
 	}
@@ -292,7 +309,7 @@ func (i *Ingest) hasBagit(loc *IngestLocation, bagit *IngestBagit) (bool, error)
 }
 
 func (i *Ingest) bagitLocationStore(ibl *IngestBagitLocation) error {
-	sqlstr := fmt.Sprintf("INSERT INTO %s.bagit_location (bagitid, locationid, transfer_start, transfer_end, status, message) VALUES (?, ?, ?, ?, ?, ?)", i.schema)
+	sqlstr := fmt.Sprintf("REPLACE INTO %s.bagit_location (bagitid, locationid, transfer_start, transfer_end, status, message) VALUES (?, ?, ?, ?, ?, ?)", i.schema)
 	_, err := i.db.Exec(sqlstr, ibl.bagit.id, ibl.location.id, ibl.start, ibl.end, ibl.status, ibl.message)
 	if err != nil {
 		return emperror.Wrapf(err, "cannot insert bagit %s at %s - %s", sqlstr, ibl.bagit.name, ibl.location.name)
@@ -335,13 +352,15 @@ func (i *Ingest) bagitLocationLoad(bagit *IngestBagit, location *IngestLocation)
 	if err != nil {
 		return nil, emperror.Wrapf(err, "cannot create ingestbagitlocation")
 	}
-
-	if err := row.Scan(&ibl.start, &ibl.end, &ibl.status, &ibl.message); err != nil {
+	var start, end sql.NullTime
+	if err := row.Scan(&start, &end, &ibl.status, &ibl.message); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, emperror.Wrapf(err, "cannot get bagit %s - %s - %s", sqlstr, bagit.name, location.name)
 	}
+	ibl.start = start.Time
+	ibl.end = end.Time
 	return ibl, nil
 }
 
@@ -383,8 +402,9 @@ func (i *Ingest) Transfer() error {
 			if err != nil {
 				return emperror.Wrapf(err, "cannot create transfer object")
 			}
-			if exists, err := target.Exists(); exists {
-				return err
+			if exists, _ := target.Exists(); exists {
+				i.logger.Infof("bagit %s in %s already exists", bagit.name, loc.name)
+				continue
 			}
 			if err := target.Transfer(source); err != nil {
 				return emperror.Wrapf(err, "cannot transfer bagit %s to %s", bagit.name, target.location.name)

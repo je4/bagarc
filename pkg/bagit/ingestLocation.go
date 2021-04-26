@@ -29,3 +29,7 @@ func (loc *IngestLocation) Store() error {
 func (loc *IngestLocation) GetPath() *url.URL {
 	return loc.path
 }
+
+func (loc *IngestLocation) IsEncrypted() bool {
+	return loc.encrypted
+}

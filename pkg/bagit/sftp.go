@@ -91,22 +91,22 @@ func (s *SFTP) GetFile(uri *url.URL, user string, target string) (int64, error) 
 	return s.Get(uri, f)
 }
 
-func (s *SFTP) PutFile(uri *url.URL, user string, source string) (int64, error) {
+func (s *SFTP) PutFile(uri *url.URL, user string, source string) (int64, string, error) {
 	f, err := os.Open(source)
 	if err != nil {
-		return 0, emperror.Wrapf(err, "cannot open file %s", source)
+		return 0, "", emperror.Wrapf(err, "cannot open file %s", source)
 	}
 	defer f.Close()
 	return s.Put(uri, user, f)
 }
 
-func (s *SFTP) Put(uri *url.URL, user string, r io.Reader) (int64, error) {
+func (s *SFTP) Put(uri *url.URL, user string, r io.Reader) (int64, string, error) {
 	if uri.Scheme != "sftp" {
-		return 0, fmt.Errorf("invalid uri scheme %s for sftp", uri.Scheme)
+		return 0, "", fmt.Errorf("invalid uri scheme %s for sftp", uri.Scheme)
 	}
 	conn, err := s.GetConnection(uri.Host, user)
 	if err != nil {
-		return 0, emperror.Wrapf(err, "unable to connect to %v with user %v", uri.Host, user)
+		return 0, "", emperror.Wrapf(err, "unable to connect to %v with user %v", uri.Host, user)
 	}
 	return conn.WriteFile(uri.Path, r)
 }

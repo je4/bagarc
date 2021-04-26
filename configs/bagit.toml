@@ -38,6 +38,6 @@ ingestloc = "temp"
 
 [db]
     #[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]
-    dsn = "tbbs:hcpOLPk64DtgNXLR@tcp(localhost:3308)/tbbs"
+    dsn = "tbbs:hcpOLPk64DtgNXLR@tcp(localhost:3308)/tbbs?parseTime=true"
     connMaxTimeout = "4h"
     schema = "tbbs"

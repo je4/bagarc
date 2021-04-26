@@ -1,6 +1,8 @@
 package bagit
 
 import (
+	"crypto/sha512"
+	"fmt"
 	"github.com/goph/emperror"
 	"github.com/op/go-logging"
 	"github.com/pkg/sftp"
@@ -89,20 +91,22 @@ func (sc *SSHConnection) ReadFile(path string, w io.Writer) (int64, error) {
 	return written, nil
 }
 
-func (sc *SSHConnection) WriteFile(path string, r io.Reader) (int64, error) {
+func (sc *SSHConnection) WriteFile(path string, r io.Reader) (int64, string, error) {
 	sftpclient, err := sc.GetSFTPClient()
 	if err != nil {
-		return 0, emperror.Wrap(err, "unable to create SFTP session")
+		return 0, "", emperror.Wrap(err, "unable to create SFTP session")
 	}
 	defer sftpclient.Close()
 
 	w, err := sftpclient.Create(path)
 	if err != nil {
-		return 0, emperror.Wrapf(err, "cannot create remote file %s", path)
+		return 0, "", emperror.Wrapf(err, "cannot create remote file %s", path)
 	}
-	written, err := io.Copy(w, r)
+	shaSink := sha512.New()
+	dest := io.MultiWriter(w, shaSink)
+	written, err := io.Copy(dest, r)
 	if err != nil {
-		return 0, emperror.Wrap(err, "cannot copy data")
+		return 0, "", emperror.Wrap(err, "cannot copy data")
 	}
-	return written, nil
+	return written, fmt.Sprintf("%x", shaSink.Sum(nil)), nil
 }
