@@ -215,20 +215,6 @@ func main() {
 		if err := creator.Run(); err != nil {
 			logger.Fatalf("cannot create Bagit: %v", err)
 		}
-	case "ingest":
-		i, err := bagit.NewIngest(conf.Tempdir, conf.KeyDir, conf.IngestLocation, db, conf.DB.Schema, conf.PrivateKey, logger)
-		if err != nil {
-			logger.Fatalf("cannot create BagitIngest: %v", err)
-			return
-		}
-		if err := i.Ingest(); err != nil {
-			logger.Fatalf("cannot ingest: %v", err)
-			return
-		}
-		if err := i.Transfer(); err != nil {
-			logger.Fatalf("cannot ingest: %v", err)
-			return
-		}
 	default:
 	}
 
