@@ -146,9 +146,12 @@ func (ibl *IngestBagitLocation) Transfer(source *IngestBagitLocation) error {
 		ibl.ingest.logger.Infof("copying %s --> %s", sourcePath, targetPath)
 		var r io.Reader
 		if ibl.location.IsEncrypted() {
-			var key, iv []byte
-			key, iv, r, err = ibl.createEncrypt(src)
-			message = fmt.Sprintf("decrypt using openssl: \n openssl enc -aes-256-ctr -nosalt -d -in %s.%s -out /tmp/%s -K '%x' -iv '%x'", ibl.bagit.name, encExt, ibl.bagit.name, string(key), string(iv))
+			//			var key, iv []byte
+			_, _, r, err = ibl.createEncrypt(src)
+			if err != nil {
+				return emperror.Wrap(err, "cannot create encryption pipeline")
+			}
+			message = fmt.Sprintf("decrypt using openssl: \n openssl enc -aes-256-ctr -nosalt -d -in %s.%s -out %s -K '`cat %s/%s.key`' -iv '`cat %s/%s.iv`'", ibl.bagit.name, encExt, ibl.bagit.name, ibl.ingest.keyDir, ibl.bagit.name, ibl.ingest.keyDir, ibl.bagit.name)
 		} else {
 			r = src
 		}
@@ -202,9 +205,13 @@ func (ibl *IngestBagitLocation) Transfer(source *IngestBagitLocation) error {
 		defer src.Close()
 		var r io.Reader
 		if ibl.location.IsEncrypted() {
-			var key, iv []byte
-			key, iv, r, err = ibl.createEncrypt(src)
-			message = fmt.Sprintf("decrypt using openssl: \n openssl enc -aes-256-ctr -nosalt -d -in %s.%s -out /tmp/%s -K '%x' -iv '%x'", ibl.bagit.name, encExt, ibl.bagit.name, string(key), string(iv))
+			//var key, iv []byte
+			_, _, r, err = ibl.createEncrypt(src)
+			if err != nil {
+				return emperror.Wrap(err, "cannot create encryption pipeline")
+			}
+			//message = fmt.Sprintf("decrypt using openssl: \n openssl enc -aes-256-ctr -nosalt -d -in %s.%s -out /tmp/%s -K '%x' -iv '%x'", ibl.bagit.name, encExt, ibl.bagit.name, string(key), string(iv))
+			message = fmt.Sprintf("decrypt using openssl: \n openssl enc -aes-256-ctr -nosalt -d -in %s.%s -out %s -K '`cat %s/%s.key`' -iv '`cat %s/%s.iv`'", ibl.bagit.name, encExt, ibl.bagit.name, ibl.ingest.keyDir, ibl.bagit.name, ibl.ingest.keyDir, ibl.bagit.name)
 		} else {
 			r = src
 		}
