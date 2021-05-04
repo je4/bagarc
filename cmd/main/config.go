@@ -58,6 +58,11 @@ type DBMySQL struct {
 	Schema         string
 }
 
+type FileMap struct {
+	Alias  string
+	Folder string
+}
+
 // main config structure for toml file
 type BagitConfig struct {
 	CertChain      string               `toml:"*certchain"`
@@ -80,6 +85,7 @@ type BagitConfig struct {
 	Tunnel         map[string]SSHTunnel `toml:"tunnel"`
 	DB             DBMySQL              `toml:"db"`
 	IngestLocation string               `toml:"ingestloc"`
+	FileMap        []FileMap            `toml:"filemap"`
 }
 
 func LoadBagitConfig(fp string, conf *BagitConfig) error {

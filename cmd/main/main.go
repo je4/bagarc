@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -65,6 +66,11 @@ func main() {
 
 	logger, lf := bagit.CreateLogger("bagit", conf.Logfile, nil, conf.Loglevel, conf.Logformat)
 	defer lf.Close()
+
+	mapping := map[string]string{}
+	for _, val := range conf.FileMap {
+		mapping[strings.ToLower(val.Alias)] = val.Folder
+	}
 
 	for name, tunnel := range conf.Tunnel {
 		logger.Infof("starting tunnel %s", name)
@@ -207,7 +213,7 @@ func main() {
 			}
 		}
 
-		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.StoreOnly, conf.Indexer, tmpdir, logger)
+		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.StoreOnly, conf.Indexer, tmpdir, mapping, logger)
 		if err != nil {
 			logger.Fatalf("cannot create BagitCreator: %v", err)
 			return
@@ -216,6 +222,7 @@ func main() {
 			logger.Fatalf("cannot create Bagit: %v", err)
 		}
 	default:
+		logger.Errorf("invalid action: %s", *action)
 	}
 
 }

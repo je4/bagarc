@@ -8,6 +8,7 @@ import (
 	"github.com/goph/emperror"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -134,7 +135,15 @@ func (bf *BagitFile) GetIndexer(indexer string) error {
 	}
 	var result map[string]interface{}
 
-	query.Url = fmt.Sprintf("file:///%s", filepath.ToSlash(filepath.Join(bf.baseDir, bf.Path)))
+	bd := bf.baseDir
+	if strings.HasPrefix(bd, "./") {
+		curr, err := os.Getwd()
+		if err != nil {
+			return emperror.Wrapf(err, "cannot get current directory")
+		}
+		bd = filepath.ToSlash(filepath.Clean(curr + "/" + bd))
+	}
+	query.Url = fmt.Sprintf("file:///%s", url.QueryEscape(filepath.ToSlash(filepath.Join(bd, bf.Path))))
 	jsonstr, err := json.Marshal(query)
 	if err != nil {
 		return emperror.Wrapf(err, "cannot marshal json")

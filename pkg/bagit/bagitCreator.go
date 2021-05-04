@@ -34,6 +34,7 @@ type BagitCreator struct {
 	storeOnly       []string          // list of pronom id's which should be be compressed
 	oxumOctetCount  int64             // octetstream sum - octet count
 	oxumStreamCount int64             // octetstream sum - file count
+	fileMap         map[string]string
 }
 
 type rwStruct struct {
@@ -42,7 +43,7 @@ type rwStruct struct {
 }
 
 // creates a new bagit creation structure
-func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map[string]string, db *badger.DB, fixFilename bool, storeOnly []string, indexer string, tempdir string, logger *logging.Logger) (*BagitCreator, error) {
+func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map[string]string, db *badger.DB, fixFilename bool, storeOnly []string, indexer, tempdir string, fileMap map[string]string, logger *logging.Logger) (*BagitCreator, error) {
 	sourcedir = filepath.ToSlash(filepath.Clean(sourcedir))
 	bagitfile = filepath.ToSlash(filepath.Clean(bagitfile))
 	// make sure, that file does not exist...
@@ -62,6 +63,7 @@ func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map
 		tempdir:     tempdir,
 		bagInfo:     bagInfo,
 		storeOnly:   storeOnly,
+		fileMap:     fileMap,
 	}
 	return bagitCreator, nil
 }
