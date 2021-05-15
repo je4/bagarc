@@ -76,7 +76,7 @@ func (bc *BagitCreator) Run() (err error) {
 		return emperror.Wrapf(err, "cannot create zip file %v", bc.bagitfile)
 	}
 	defer zipFile.Close()
-
+	bc.logger.Infof("ZIP file %s created", bc.bagitfile)
 	// create writer for zip
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
@@ -155,7 +155,7 @@ func (bc *BagitCreator) Run() (err error) {
 			}
 		}
 	}
-
+	bc.logger.Infof("ZIP file %s written", bc.bagitfile)
 	return
 }
 
@@ -447,7 +447,7 @@ func (bc *BagitCreator) visitFile(path string, f os.FileInfo, zipWriter *zip.Wri
 
 	compression := zip.Deflate
 	if bc.indexer != "" {
-		if err := bf.GetIndexer(bc.indexer); err != nil {
+		if err := bf.GetIndexer(bc.indexer, bc.fileMap); err != nil {
 			bc.logger.Errorf("error querying indexer: %v", err)
 		} else {
 			dc, error := bc.doCompress(bf.Indexer)

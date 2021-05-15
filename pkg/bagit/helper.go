@@ -116,6 +116,7 @@ func CreateLogger(module string, logfile string, w *io.PipeWriter, loglevel stri
 	return
 }
 
+// FixFilename
 /**********************************************************************
  * 1) Forbid/escape ASCII control characters (bytes 1-31 and 127) in filenames, including newline, escape, and tab.
  *    I know of no user or program that actually requires this capability. As far as I can tell, this capability

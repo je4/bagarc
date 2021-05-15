@@ -126,24 +126,33 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string, compress
 	return nil
 }
 
-func (bf *BagitFile) GetIndexer(indexer string) error {
+func (bf *BagitFile) GetIndexer(indexer string, fileMap map[string]string) error {
 	var query struct {
-		Url          string   `json:"url"`
-		Action       []string `json:"action,omitempty"`
-		Downloadmime string   `json:"downloadmime,omitempty"`
-		Headersize   int64    `json:"headersize,omitempty"`
+		Url           string   `json:"url"`
+		Actions       []string `json:"actions,omitempty"`
+		ForceDownload string   `json:"forcedownload,omitempty"`
+		Headersize    int64    `json:"headersize,omitempty"`
 	}
+	query.Actions = []string{"siegfried", "identify", "ffprobe" /*"tika", */, "nsrl"}
+	query.ForceDownload = ".*/.*"
 	var result map[string]interface{}
 
-	bd := bf.baseDir
-	if strings.HasPrefix(bd, "./") {
-		curr, err := os.Getwd()
-		if err != nil {
-			return emperror.Wrapf(err, "cannot get current directory")
+	bd := strings.ToLower(bf.baseDir)
+	found := false
+	for key, val := range fileMap {
+		if strings.HasPrefix(bd, val) {
+			ustr := fmt.Sprintf("file://%s/%s", key, url.PathEscape(strings.TrimLeft(filepath.ToSlash(filepath.Join(bd[len(val):], bf.Path)), "/")))
+			u, err := url.Parse(ustr)
+			if err != nil {
+				return emperror.Wrapf(err, "cannot parse url %s", ustr)
+			}
+			query.Url = u.String()
+			found = true
 		}
-		bd = filepath.ToSlash(filepath.Clean(curr + "/" + bd))
 	}
-	query.Url = fmt.Sprintf("file:///%s", url.QueryEscape(filepath.ToSlash(filepath.Join(bd, bf.Path))))
+	if !found {
+		return fmt.Errorf("path %s not in filemap", bd)
+	}
 	jsonstr, err := json.Marshal(query)
 	if err != nil {
 		return emperror.Wrapf(err, "cannot marshal json")

@@ -17,7 +17,7 @@ Cleanup = false
 Checksum  = ["md5", "sha512"]
 
 # url to call indexer service [[PATH]] will be replaced with filename
-#Indexer = "http://localhost:8000"
+Indexer = "http://localhost:8000"
 
 # rename filenames with characters which should be avoided
 FixFilenames = true
