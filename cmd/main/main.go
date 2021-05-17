@@ -25,7 +25,7 @@ func main() {
 	var bagitfile = flag.String("bagit", "bagarc.zip", "target filename (bagit zip)")
 	var configfile = flag.String("cfg", "/etc/bagit.toml", "configuration file")
 	var tempdir = flag.String("temp", "/tmp", "folder for temporary files")
-	var checksum = flag.StringArray("checksum", []string{"md5", "sha512"}, "checksum algorithms to use (md5|sha256|sha512)")
+	var checksum = flag.StringArray("checksum", []string{"md5", "sha512"}, "checksum algorithms to use (md5|sha1|sha256|sha512)")
 	var indexer = flag.String("indexer", "", "url for indexer")
 	var fixFilenames = flag.Bool("fixfilenames", true, "set this flag, if filenames should be corrected")
 	var bagInfoFile = flag.String("baginfo", "", "json file with bag-info entries (only string, no hierarchy)")
