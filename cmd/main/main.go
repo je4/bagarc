@@ -32,6 +32,7 @@ func main() {
 	var cleanup = flag.Bool("cleanup", false, "remove temporary files after bagit creation")
 	var restoreFilenames = flag.Bool("restorefilenames", true, "rename strange characters back while extracting")
 	var outputFolder = flag.String("output", ".", "folder in which output structure has to be copied")
+	var force = flag.Bool("force", false, "overwrite existing bagit file")
 
 	flag.Parse()
 
@@ -54,7 +55,7 @@ func main() {
 		case "checksum":
 			conf.Checksum = *checksum
 		case "indexer":
-			conf.Indexer = *indexer
+			conf.Indexer.Url = *indexer
 		case "fixfilenames":
 			conf.FixFilenames = *fixFilenames
 		case "cleanup":
@@ -180,6 +181,11 @@ func main() {
 	case "bagit":
 		// clean up all files
 		tmpdir := *bagitfile + ".tmp"
+		if !*force {
+			if _, err := os.Stat(*bagitfile); !os.IsNotExist(err) {
+				logger.Fatalf("%s already exists", *bagitfile)
+			}
+		}
 		os.Remove(*bagitfile)
 		os.RemoveAll(tmpdir)
 		os.Mkdir(tmpdir, os.ModePerm)
@@ -213,7 +219,7 @@ func main() {
 			}
 		}
 
-		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.StoreOnly, conf.Indexer, tmpdir, mapping, logger)
+		creator, err := bagit.NewBagitCreator(*sourcedir, *bagitfile, conf.Checksum, bagInfo, db, conf.FixFilenames, conf.StoreOnly, conf.Indexer.Url, conf.Indexer.Checks, tmpdir, mapping, logger)
 		if err != nil {
 			logger.Fatalf("cannot create BagitCreator: %v", err)
 			return

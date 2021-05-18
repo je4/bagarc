@@ -63,6 +63,11 @@ type FileMap struct {
 	Folder string
 }
 
+type Indexer struct {
+	Url    string
+	Checks []string
+}
+
 // main config structure for toml file
 type BagitConfig struct {
 	CertChain      string               `toml:"*certchain"`
@@ -76,7 +81,7 @@ type BagitConfig struct {
 	Checksum       []string             `toml:"checksum"`
 	Tempdir        string               `toml:"tempdir"`
 	KeyDir         string               `toml:"keydir"`
-	Indexer        string               `toml:"indexer"`
+	Indexer        Indexer              `toml:"indexer"`
 	FixFilenames   bool                 `toml:"fixfilenames"`
 	StoreOnly      []string             `toml:"nocompress"`
 	Cleanup        bool                 `toml:"cleanup"`

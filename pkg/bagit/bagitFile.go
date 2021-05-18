@@ -126,14 +126,14 @@ func (bf *BagitFile) AddToZip(zipWriter *zip.Writer, checksum []string, compress
 	return nil
 }
 
-func (bf *BagitFile) GetIndexer(indexer string, fileMap map[string]string) error {
+func (bf *BagitFile) GetIndexer(indexer string, checks []string, fileMap map[string]string) error {
 	var query struct {
 		Url           string   `json:"url"`
 		Actions       []string `json:"actions,omitempty"`
 		ForceDownload string   `json:"forcedownload,omitempty"`
 		Headersize    int64    `json:"headersize,omitempty"`
 	}
-	query.Actions = []string{"siegfried", "identify", "ffprobe" /*"tika", */, "nsrl"}
+	query.Actions = checks
 	query.ForceDownload = ".*/.*"
 	var result map[string]interface{}
 

@@ -28,6 +28,7 @@ type BagitCreator struct {
 	checksum        []string          // list of checksums to create
 	db              *badger.DB        // file storage
 	indexer         string            // url for indexer daemon
+	indexerChecks   []string          // checks for indexer
 	tempdir         string            // folder for temporary files
 	fixFilename     bool              // true, if filenames should be corrected
 	bagInfo         map[string]string // list of entries for bag-info.txt
@@ -43,7 +44,7 @@ type rwStruct struct {
 }
 
 // creates a new bagit creation structure
-func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map[string]string, db *badger.DB, fixFilename bool, storeOnly []string, indexer, tempdir string, fileMap map[string]string, logger *logging.Logger) (*BagitCreator, error) {
+func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map[string]string, db *badger.DB, fixFilename bool, storeOnly []string, indexer string, indexerChecks []string, tempdir string, fileMap map[string]string, logger *logging.Logger) (*BagitCreator, error) {
 	sourcedir = filepath.ToSlash(filepath.Clean(sourcedir))
 	bagitfile = filepath.ToSlash(filepath.Clean(bagitfile))
 	// make sure, that file does not exist...
@@ -53,17 +54,18 @@ func NewBagitCreator(sourcedir, bagitfile string, checksum []string, bagInfo map
 	}
 
 	bagitCreator := &BagitCreator{
-		sourcedir:   sourcedir,
-		bagitfile:   bagitfile,
-		logger:      logger,
-		checksum:    checksum,
-		db:          db,
-		fixFilename: fixFilename,
-		indexer:     indexer,
-		tempdir:     tempdir,
-		bagInfo:     bagInfo,
-		storeOnly:   storeOnly,
-		fileMap:     fileMap,
+		sourcedir:     sourcedir,
+		bagitfile:     bagitfile,
+		logger:        logger,
+		checksum:      checksum,
+		db:            db,
+		fixFilename:   fixFilename,
+		indexer:       indexer,
+		indexerChecks: indexerChecks,
+		tempdir:       tempdir,
+		bagInfo:       bagInfo,
+		storeOnly:     storeOnly,
+		fileMap:       fileMap,
 	}
 	return bagitCreator, nil
 }
@@ -447,8 +449,9 @@ func (bc *BagitCreator) visitFile(path string, f os.FileInfo, zipWriter *zip.Wri
 
 	compression := zip.Deflate
 	if bc.indexer != "" {
-		if err := bf.GetIndexer(bc.indexer, bc.fileMap); err != nil {
-			bc.logger.Errorf("error querying indexer: %v", err)
+		if err := bf.GetIndexer(bc.indexer, bc.indexerChecks, bc.fileMap); err != nil {
+			//bc.logger.Errorf("error querying indexer: %v", err)
+			return emperror.Wrapf(err, "cannot query indexer")
 		} else {
 			dc, error := bc.doCompress(bf.Indexer)
 			if error == nil {

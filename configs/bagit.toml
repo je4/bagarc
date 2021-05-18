@@ -14,10 +14,7 @@ DBFolder = "c:/temp/bagit/badger"
 Cleanup = false
 
 # checksums which need to be created for bagit
-Checksum  = ["md5", "sha512"]
-
-# url to call indexer service [[PATH]] will be replaced with filename
-Indexer = "http://localhost:8000"
+Checksum  = ["md5", "sha1", "sha512"]
 
 # rename filenames with characters which should be avoided
 FixFilenames = true
@@ -49,3 +46,9 @@ ingestloc = "temp"
 [[filemap]]
     alias = "blah"
     folder = "c:/temp"
+
+[indexer]
+    # url to call indexer service [[PATH]] will be replaced with filename
+    Url = "http://localhost:8000"
+    Checks = ["siegfried", "identify", "ffprobe", "nsrl"]
+    #Checks = ["siegfried", "identify", "ffprobe" /*"tika", */, "nsrl"]
