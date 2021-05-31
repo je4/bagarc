@@ -134,15 +134,15 @@ func (bc *BagitCreator) Run() (err error) {
 		tagmanifests[csType]["bagarc/renames.csv"] = cs
 	}
 
-	if len(bc.bagInfo) > 0 {
-		checksums, err = bc.writeBaginfoToZip(zipWriter)
-		if err != nil {
-			return emperror.Wrap(err, "cannot write bag-info.txt to zip")
-		}
-		for csType, cs := range checksums {
-			tagmanifests[csType]["bag-info.txt"] = cs
-		}
+	//	if len(bc.bagInfo) > 0 {
+	checksums, err = bc.writeBaginfoToZip(zipWriter)
+	if err != nil {
+		return emperror.Wrap(err, "cannot write bag-info.txt to zip")
 	}
+	for csType, cs := range checksums {
+		tagmanifests[csType]["bag-info.txt"] = cs
+	}
+	//	}
 
 	for csType, tags := range tagmanifests {
 		manifestfile := fmt.Sprintf("tagmanifest-%s.txt", csType)

@@ -197,7 +197,7 @@ func (bagit *Bagit) checkFormal(zipReader *zip.ReadCloser) (string, string, erro
 	return checksum, encodingName, nil
 }
 
-func (bagit *Bagit) checkManifest(zipReader *zip.ReadCloser, checksum string, encodingName string, metadataSink, bagit_txt io.Writer) error {
+func (bagit *Bagit) checkManifest(zipReader *zip.ReadCloser, checksum string, encodingName string, metadataSink, bag_info io.Writer) error {
 	var encDecoder *encoding.Decoder
 	switch encodingName {
 	case "UTF-8":
@@ -239,8 +239,8 @@ func (bagit *Bagit) checkManifest(zipReader *zip.ReadCloser, checksum string, en
 			if metadataSink != nil && (name == "bagarc/metainfo.json") {
 				writers = append(writers, metadataSink)
 			}
-			if bagit_txt != nil && (name == "bagit.txt") {
-				writers = append(writers, bagit_txt)
+			if bag_info != nil && (name == "bag-info.txt") {
+				writers = append(writers, bag_info)
 			}
 			sink := io.MultiWriter(writers...)
 			if _, err := io.Copy(sink, rc); err != nil {
