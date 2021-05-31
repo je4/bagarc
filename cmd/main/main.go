@@ -153,7 +153,7 @@ func main() {
 		}()
 
 		checker, err := bagit.NewBagit(*bagitfile, tmpdir, db, logger)
-		if err := checker.Check(nil); err != nil {
+		if err := checker.Check(nil, nil); err != nil {
 			logger.Fatalf("error checking file: %v", err)
 		}
 	case "extract":

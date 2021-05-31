@@ -50,5 +50,5 @@ ingestloc = "temp"
 [indexer]
     # url to call indexer service [[PATH]] will be replaced with filename
     Url = "http://localhost:8000"
-    Checks = ["siegfried", "identify", "ffprobe", "nsrl"]
+    Checks = ["siegfried", "identify", "ffprobe", "nsrl", "tika"]
     #Checks = ["siegfried", "identify", "ffprobe" /*"tika", */, "nsrl"]
