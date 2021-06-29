@@ -137,7 +137,7 @@ func (bf *BagitFile) GetIndexer(indexer string, checks []string, fileMap map[str
 	query.ForceDownload = ".*/.*"
 	var result map[string]interface{}
 
-	bd := strings.ToLower(bf.baseDir)
+	bd := bf.baseDir
 	found := false
 	for key, val := range fileMap {
 		if strings.HasPrefix(bd, val) {

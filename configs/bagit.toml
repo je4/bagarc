@@ -48,7 +48,7 @@ ingestloc = "temp"
     folder = "c:/temp"
 
 [indexer]
-    # url to call indexer service [[PATH]] will be replaced with filename
+    # url to call indexer service
     Url = "http://localhost:8000"
-    Checks = ["siegfried", "identify", "ffprobe", "nsrl", "tika"]
+    Checks = ["siegfried", "identify", "ffprobe", "nsrl", "tika", "exif", "clamav"]
     #Checks = ["siegfried", "identify", "ffprobe" /*"tika", */, "nsrl"]

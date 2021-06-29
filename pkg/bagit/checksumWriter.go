@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-// Checksumwriter creates concurrent threads for writing and creating checksums
+// ChecksumWriter creates concurrent threads for writing and creating checksums
 type ChecksumWriter struct {
 	sync.Mutex
 	checksums []string
@@ -22,6 +22,29 @@ type ChecksumWriter struct {
 	errors    []error
 	rws       map[string]rwStruct
 	dataLock  sync.Mutex
+}
+
+func getHash(csType string) (hash.Hash, error) {
+	var sink hash.Hash
+	switch csType {
+	case "md5":
+		sink = md5.New()
+	case "sha1":
+		sink = sha1.New()
+	case "sha256":
+		sink = sha256.New()
+	case "sha512":
+		sink = sha512.New()
+	case "sha3-256":
+		sink = sha3.New256()
+	case "sha3-384":
+		sink = sha3.New384()
+	case "sha3-512":
+		sink = sha3.New512()
+	default:
+		return nil, fmt.Errorf("unknown checksum %s", csType)
+	}
+	return sink, nil
 }
 
 func NewChecksumWriter(checksums []string) *ChecksumWriter {
@@ -42,23 +65,8 @@ func ChecksumCopy(dst io.Writer, src io.Reader, checksums []string) (map[string]
 }
 
 func Checksum(src io.Reader, checksum string) (string, error) {
-	var sink hash.Hash
-	switch checksum {
-	case "md5":
-		sink = md5.New()
-	case "sha1":
-		sink = sha1.New()
-	case "sha256":
-		sink = sha256.New()
-	case "sha512":
-		sink = sha512.New()
-	case "sha3-256":
-		sink = sha3.New256()
-	case "sha3-384":
-		sink = sha3.New384()
-	case "sha3-512":
-		sink = sha3.New512()
-	default:
+	sink, err := getHash(checksum)
+	if err != nil {
 		return "", errors.New(fmt.Sprintf("invalid checksum type %s", checksum))
 	}
 	if _, err := io.Copy(sink, src); err != nil {
@@ -74,23 +82,8 @@ func (c *ChecksumWriter) doChecksum(reader io.Reader, csType string, done chan b
 	// we should end in all cases
 	defer func() { done <- true }()
 
-	var sink hash.Hash
-	switch csType {
-	case "md5":
-		sink = md5.New()
-	case "sha1":
-		sink = sha1.New()
-	case "sha256":
-		sink = sha256.New()
-	case "sha512":
-		sink = sha512.New()
-	case "sha3-256":
-		sink = sha3.New256()
-	case "sha3-384":
-		sink = sha3.New384()
-	case "sha3-512":
-		sink = sha3.New512()
-	default:
+	sink, err := getHash(csType)
+	if err != nil {
 		c.setError(errors.New(fmt.Sprintf("invalid hash function %s", csType)))
 		null := &NullWriter{}
 		io.Copy(null, reader)
