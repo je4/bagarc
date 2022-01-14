@@ -11,8 +11,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"unicode"
 )
 
 type BagitFile struct {
@@ -139,6 +141,13 @@ func (bf *BagitFile) GetIndexer(indexer string, checks []string, fileMap map[str
 
 	bd := bf.baseDir
 	found := false
+
+	if runtime.GOOS == "windows" {
+		a := []rune(bd)
+		a[0] = unicode.ToLower(a[0])
+		bd = string(a)
+	}
+
 	for key, val := range fileMap {
 		if strings.HasPrefix(bd, val) {
 			ustr := fmt.Sprintf("file://%s/%s", key, url.PathEscape(strings.TrimLeft(filepath.ToSlash(filepath.Join(bd[len(val):], bf.Path)), "/")))
