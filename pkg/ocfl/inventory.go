@@ -125,16 +125,37 @@ func (i *Inventory) NewVersion(msg, UserName, UserAddress string) error {
 
 func (i *Inventory) DeleteFile(virtualFilename string) error {
 	var newState = map[string][]string{}
+	var found = false
 	for key, vals := range i.Versions[i.GetVersion()].State {
 		newState[key] = []string{}
 		for _, val := range vals {
 			if val == virtualFilename {
-				continue
+				found = true
+			} else {
+				newState[key] = append(newState[key], val)
 			}
-			newState[key] = append(newState[key], val)
 		}
 	}
 	i.Versions[i.GetVersion()].State = newState
+	i.modified = found
+	return nil
+}
+func (i *Inventory) Rename(oldVirtualFilename, newVirtualFilename string) error {
+	var newState = map[string][]string{}
+	var found = false
+	for key, vals := range i.Versions[i.GetVersion()].State {
+		newState[key] = []string{}
+		for _, val := range vals {
+			if val == oldVirtualFilename {
+				found = true
+				newState[key] = append(newState[key], newVirtualFilename)
+			} else {
+				newState[key] = append(newState[key], val)
+			}
+		}
+	}
+	i.Versions[i.GetVersion()].State = newState
+	i.modified = found
 	return nil
 }
 
@@ -152,11 +173,22 @@ func (i *Inventory) AddFile(virtualFilename string, realFilename string, checksu
 		i.logger.Debugf("%s is a duplicate - ignoring", virtualFilename)
 		return nil
 	}
+
 	i.Manifest[checksum] = append(i.Manifest[checksum], realFilename)
 
 	if _, ok := i.Versions[i.Head].State[checksum]; !ok {
 		i.Versions[i.Head].State[checksum] = []string{}
 	}
+
+	upd, err := i.IsUpdate(virtualFilename, checksum)
+	if err != nil {
+		return emperror.Wrapf(err, "cannot check for update of %s [%s]", virtualFilename, checksum)
+	}
+	if upd {
+		i.logger.Debugf("%s is an update - removing old version", virtualFilename)
+		i.DeleteFile(virtualFilename)
+	}
+
 	i.Versions[i.Head].State[checksum] = append(i.Versions[i.Head].State[checksum], virtualFilename)
 
 	i.modified = true
@@ -235,6 +267,57 @@ func (i *Inventory) IsDuplicate(virtualFilename, checksum string) (bool, error) 
 	}
 	i.logger.Debugf("%s - duplicate %v", virtualFilename, lastChecksum == checksum)
 	return lastChecksum == checksum, nil
+}
+
+func (i *Inventory) IsUpdate(virtualFilename, checksum string) (bool, error) {
+	i.logger.Debugf("%s [%s]", virtualFilename, checksum)
+	if checksum == "" {
+		i.logger.Debugf("%s - update %v", virtualFilename, false)
+		return false, nil
+	}
+
+	// first get checksum of last version of a file
+	cs := map[string]string{}
+	for ver, version := range i.Versions {
+		for checksum, filenames := range version.State {
+			found := false
+			for _, filename := range filenames {
+				if filename == virtualFilename {
+					cs[ver] = checksum
+					found = true
+				}
+			}
+			if found {
+				break
+			}
+		}
+	}
+	if len(cs) == 0 {
+		i.logger.Debugf("%s - update %v", virtualFilename, false)
+		return false, nil
+	}
+	versions := []int{}
+
+	for ver, _ := range cs {
+		matches := vRegexp.FindStringSubmatch(ver)
+		if matches == nil {
+			return false, errors.New(fmt.Sprintf("invalid version in inventory - %s", ver))
+		}
+		versionInt, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return false, emperror.Wrapf(err, "cannot convert version number to int - %s", matches[1])
+		}
+		versions = append(versions, versionInt)
+	}
+	// sort versions ascending
+	sort.Ints(versions)
+	lastVersion := versions[len(versions)-1]
+	lastChecksum, ok := cs[fmt.Sprintf("v%d", lastVersion)]
+	if !ok {
+		return false, errors.New(fmt.Sprintf("could not get checksum for v%d", lastVersion))
+	}
+	i.logger.Debugf("%s - update %v", virtualFilename, lastChecksum != checksum)
+	return lastChecksum != checksum, nil
 }
 
 // clear unmodified version
