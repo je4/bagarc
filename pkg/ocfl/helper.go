@@ -69,7 +69,7 @@ func FixFilename(fname string) string {
 }
 
 // deep copy map of string slices
-func copyMapStringSlice(src, dest map[string][]string) {
+func copyMapStringSlice(dest, src map[string][]string) {
 	for key, val := range src {
 		dest[key] = make([]string, len(val))
 		copy(dest[key], val)

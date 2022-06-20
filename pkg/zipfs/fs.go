@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -21,7 +22,7 @@ type FS struct {
 }
 
 func NewFSIO(src io.ReaderAt, srcSize int64, dst io.Writer, logger *logging.Logger) (*FS, error) {
-	logger.Debug("instantiating FSIO")
+	logger.Debug("instantiating FS")
 	var err error
 	zfs := &FS{
 		newFiles:  []string{},
@@ -137,20 +138,51 @@ func (zf *FS) ReadDir(name string) ([]fs.DirEntry, error) {
 		name = strings.TrimSuffix(filepath.ToSlash(name), "/") + "/"
 	}
 	var entries = []*DirEntry{}
+	var dirs = []string{}
 	for _, zipItem := range zf.r.File {
 		if name != "" && !strings.HasPrefix(zipItem.Name, name) {
 			continue
 		}
-		fi, err := NewFileInfoFile(zipItem)
+		fname := zipItem.Name
+		if name != "" && !strings.HasPrefix(fname, name) {
+			continue
+		}
+		fname = strings.TrimPrefix(fname, name)
+		parts := strings.Split(fname, "/")
+		// only files have one part
+		if len(parts) == 1 {
+			fi, err := NewFileInfoFile(zipItem)
+			if err != nil {
+				return nil, emperror.Wrapf(err, "cannot create FileInfo for %s", zipItem.Name)
+			}
+			entries = append(entries, NewDirEntry(fi))
+		}
+		found := false
+		for _, d := range dirs {
+			if d == parts[0] {
+				found = true
+			}
+		}
+		if !found {
+			dirs = append(dirs, parts[0])
+		}
+	}
+	for _, d := range dirs {
+		fi, err := NewFileInfoDir(d)
 		if err != nil {
-			return nil, emperror.Wrapf(err, "cannot create FileInfo for %s", zipItem.Name)
+			return nil, emperror.Wrapf(err, "cannot create Fileinfo for %s", d)
 		}
 		entries = append(entries, NewDirEntry(fi))
 	}
+
 	var result = []fs.DirEntry{}
 	for _, entry := range entries {
 		result = append(result, entry)
 	}
+	// sort on filename
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name() < result[j].Name()
+	})
 	return result, nil
 }
 

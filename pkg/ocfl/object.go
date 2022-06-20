@@ -17,22 +17,23 @@ const VERSION = "1.0"
 
 var rootConformanceDeclaration = fmt.Sprintf("0=ocfl_%s", VERSION)
 
-// OCFLFS for OCFL we need a fs.ReadDirFS plus Create function
-type OCFLFS interface {
-	fs.ReadDirFS
-	Create(name string) (io.Writer, error)
-}
-
-type OCFL struct {
-	fs      OCFLFS
-	i       *Inventory
-	changed bool
-	logger  *logging.Logger
+type OCFLObject struct {
+	fs         OCFLFS
+	pathPrefix string
+	i          *Inventory
+	changed    bool
+	logger     *logging.Logger
 }
 
 // NewOCFL creates an empty OCFL structure
-func NewOCFL(fs OCFLFS, id string, logger *logging.Logger) (*OCFL, error) {
-	ocfl := &OCFL{fs: fs, logger: logger}
+func NewOCFLObject(fs OCFLFS, pathPrefix, id string, logger *logging.Logger) (*OCFLObject, error) {
+	if pathPrefix == "." {
+		pathPrefix = ""
+	}
+	// no / prefix, but / suffix
+	pathPrefix = strings.Trim(pathPrefix, "/") + "/"
+	ocfl := &OCFLObject{fs: fs, logger: logger, pathPrefix: pathPrefix}
+
 	if err := ocfl.Init(id); err != nil {
 		return nil, emperror.Wrap(err, "cannot initialize ocfl")
 	}
@@ -43,9 +44,12 @@ var versionRegexp = regexp.MustCompile("^v(\\d+)/$")
 var inventoryDigestRegexp = regexp.MustCompile(fmt.Sprintf("^(?i)inventory\\.json\\.(%s|%s)$", string(DigestSHA512), string(DigestSHA256)))
 
 // LoadInventory loads inventory from existing OCFLFS
-func (ocfl *OCFL) LoadInventory(folder string) (*Inventory, error) {
+func (ocfl *OCFLObject) LoadInventory(folder string) (*Inventory, error) {
+	if folder == "." {
+		folder = ""
+	}
 	ocfl.logger.Debugf("%s", folder)
-	entries, err := ocfl.fs.ReadDir(folder)
+	entries, err := ocfl.fs.ReadDir(ocfl.pathPrefix + folder)
 	var inventoryDigest = map[DigestAlgorithm]string{}
 	for _, entry := range entries {
 		name := entry.Name()
@@ -60,7 +64,7 @@ func (ocfl *OCFL) LoadInventory(folder string) (*Inventory, error) {
 			default:
 				return nil, errors.New(fmt.Sprintf("invalid digest file for inventory - %s", name))
 			}
-			digestBytes, err := fs.ReadFile(ocfl.fs, name)
+			digestBytes, err := fs.ReadFile(ocfl.fs, ocfl.pathPrefix+name)
 			if err != nil {
 				return nil, emperror.Wrapf(err, "cannot read digest file %s", name)
 			}
@@ -73,7 +77,7 @@ func (ocfl *OCFL) LoadInventory(folder string) (*Inventory, error) {
 	if len(inventoryDigest) == 0 {
 		return nil, errors.New(fmt.Sprintf("cannot find digest file for %s", "inventory.json"))
 	}
-	iFp, err := ocfl.fs.Open("inventory.json")
+	iFp, err := ocfl.fs.Open(ocfl.pathPrefix + "inventory.json")
 	if err != nil {
 		return nil, emperror.Wrapf(err, "cannot open %s", "inventory.json")
 	}
@@ -101,7 +105,7 @@ func (ocfl *OCFL) LoadInventory(folder string) (*Inventory, error) {
 	return inventory, nil
 }
 
-func (ocfl *OCFL) StoreInventory() error {
+func (ocfl *OCFLObject) StoreInventory() error {
 	ocfl.logger.Debug()
 
 	if !ocfl.i.IsWriteable() {
@@ -117,7 +121,16 @@ func (ocfl *OCFL) StoreInventory() error {
 	}
 	checksumBytes := h.Sum(jsonBytes)
 	checksumString := fmt.Sprintf("%x", checksumBytes)
-	iWriter, err := ocfl.fs.Create("inventory.json")
+	iFileName := "inventory.json"
+	iWriter, err := ocfl.fs.Create(ocfl.pathPrefix + iFileName)
+	if err != nil {
+		return emperror.Wrap(err, "cannot create inventory.json")
+	}
+	if _, err := iWriter.Write(jsonBytes); err != nil {
+		return emperror.Wrap(err, "cannot write to inventory.json")
+	}
+	iFileName = fmt.Sprintf("%s/inventory.json", ocfl.i.GetVersion())
+	iWriter, err = ocfl.fs.Create(ocfl.pathPrefix + iFileName)
 	if err != nil {
 		return emperror.Wrap(err, "cannot create inventory.json")
 	}
@@ -125,7 +138,15 @@ func (ocfl *OCFL) StoreInventory() error {
 		return emperror.Wrap(err, "cannot write to inventory.json")
 	}
 	csFileName := fmt.Sprintf("inventory.json.%s", string(ocfl.i.GetDigestAlgorithm()))
-	iCSWriter, err := ocfl.fs.Create(csFileName)
+	iCSWriter, err := ocfl.fs.Create(ocfl.pathPrefix + csFileName)
+	if err != nil {
+		return emperror.Wrapf(err, "cannot create %s", csFileName)
+	}
+	if _, err := iCSWriter.Write([]byte(checksumString)); err != nil {
+		return emperror.Wrapf(err, "cannot write to %s", csFileName)
+	}
+	csFileName = fmt.Sprintf("%s/inventory.json.%s", ocfl.i.GetVersion(), string(ocfl.i.GetDigestAlgorithm()))
+	iCSWriter, err = ocfl.fs.Create(ocfl.pathPrefix + csFileName)
 	if err != nil {
 		return emperror.Wrapf(err, "cannot create %s", csFileName)
 	}
@@ -135,16 +156,16 @@ func (ocfl *OCFL) StoreInventory() error {
 	return nil
 }
 
-func (ocfl *OCFL) Init(id string) error {
+func (ocfl *OCFLObject) Init(id string) error {
 	ocfl.logger.Debugf("%s", id)
 
 	// first check whether ocfl is not empty
-	fp, err := ocfl.fs.Open(rootConformanceDeclaration)
+	fp, err := ocfl.fs.Open(ocfl.pathPrefix + rootConformanceDeclaration)
 	if err != nil {
 		if err != fs.ErrNotExist {
 			return emperror.Wrap(err, "cannot initialize OCFL layout")
 		}
-		_, err := ocfl.fs.Create(rootConformanceDeclaration)
+		_, err := ocfl.fs.Create(ocfl.pathPrefix + rootConformanceDeclaration)
 		if err != nil {
 			return emperror.Wrapf(err, "cannot create %s", rootConformanceDeclaration)
 		}
@@ -167,7 +188,10 @@ func (ocfl *OCFL) Init(id string) error {
 	return nil
 }
 
-func (ocfl *OCFL) Close() error {
+func (ocfl *OCFLObject) GetDigestAlgorithm() DigestAlgorithm {
+	return ocfl.i.GetDigestAlgorithm()
+}
+func (ocfl *OCFLObject) Close() error {
 	ocfl.logger.Debug()
 	if ocfl.i.IsWriteable() {
 		if err := ocfl.i.Clean(); err != nil {
@@ -180,7 +204,7 @@ func (ocfl *OCFL) Close() error {
 	return nil
 }
 
-func (ocfl *OCFL) StartUpdate(msg string, UserName string, UserAddress string) error {
+func (ocfl *OCFLObject) StartUpdate(msg string, UserName string, UserAddress string) error {
 	ocfl.logger.Debugf("%s / %s / %s", msg, UserName, UserAddress)
 
 	if ocfl.i.IsWriteable() {
@@ -192,7 +216,7 @@ func (ocfl *OCFL) StartUpdate(msg string, UserName string, UserAddress string) e
 	return nil
 }
 
-func (ocfl *OCFL) AddFile(virtualFilename string, reader io.Reader, checksum string) error {
+func (ocfl *OCFLObject) AddFile(virtualFilename string, reader io.Reader, checksum string) error {
 	virtualFilename = filepath.ToSlash(virtualFilename)
 	ocfl.logger.Debugf("%s [%s]", virtualFilename, checksum)
 
@@ -210,7 +234,7 @@ func (ocfl *OCFL) AddFile(virtualFilename string, reader io.Reader, checksum str
 		return nil
 	}
 	realFilename := ocfl.i.BuildRealname(virtualFilename)
-	writer, err := ocfl.fs.Create(realFilename)
+	writer, err := ocfl.fs.Create(ocfl.pathPrefix + realFilename)
 	if err != nil {
 		return emperror.Wrapf(err, "cannot create %s", realFilename)
 	}

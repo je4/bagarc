@@ -7,13 +7,16 @@ import (
 	"github.com/je4/bagarc/v2/pkg/zipfs"
 	lm "github.com/je4/utils/v2/pkg/logger"
 	flag "github.com/spf13/pflag"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
-const LOGFORMAT = `%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} [%{shortfile}] > %{level:.5s} - %{message}`
+//const LOGFORMAT = `%{time:2006-01-02T15:04:05.000} %{module}::%{shortfunc} [%{shortfile}] > %{level:.5s} - %{message}`
+const LOGFORMAT = `%{time:2006-01-02T15:04:05.000} %{shortpkg}::%{longfunc} [%{shortfile}] > %{level:.5s} - %{message}`
 
 func main() {
 	var err error
@@ -79,7 +82,7 @@ func main() {
 		panic(err)
 	}
 	defer zfs.Close()
-	o, err := ocfl.NewOCFL(zfs, filepath.Base(*zipfile), logger)
+	o, err := ocfl.NewOCFLObject(zfs, "", filepath.Base(*zipfile), logger)
 	if err != nil {
 		err = emperror.ExposeStackTrace(emperror.Wrap(err, "cannot create zipfs"))
 		stack, ok := emperror.StackTrace(err)
@@ -90,12 +93,6 @@ func main() {
 	}
 	defer o.Close()
 
-	testfile := "c:/temp/Updates_Artists_20220606.csv"
-	file, err := os.Open(testfile)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
 	if err := o.StartUpdate("test 42", "Jürgen Enge", "juergen.enge@unibas.ch"); err != nil {
 		err = emperror.ExposeStackTrace(emperror.Wrap(err, "cannot add file"))
 		stack, ok := emperror.StackTrace(err)
@@ -104,24 +101,41 @@ func main() {
 		}
 		panic(err)
 	}
-	checksum, err := ocfl.Checksum(file, ocfl.DigestSHA512)
-	if err != nil {
-		err = emperror.ExposeStackTrace(emperror.Wrap(err, "cannot add file"))
-		stack, ok := emperror.StackTrace(err)
-		if ok {
-			log.Print(stack)
+
+	testdir := "C:/temp/bangbang/bootstrap"
+
+	if err := filepath.Walk(testdir, func(path string, info fs.FileInfo, err error) error {
+		// directory not interesting
+		if info.IsDir() {
+			return nil
 		}
-		panic(err)
-	}
-	if _, err := file.Seek(0, 0); err != nil {
-		panic(err)
-	}
-	if err := o.AddFile("Update's_Artists?_202206#06.csv", file, checksum); err != nil {
-		err = emperror.ExposeStackTrace(emperror.Wrap(err, "cannot add file"))
-		stack, ok := emperror.StackTrace(err)
-		if ok {
-			log.Print(stack)
+		file, err := os.Open(path)
+		if err != nil {
+			panic(err)
 		}
+		defer file.Close()
+		checksum, err := ocfl.Checksum(file, ocfl.DigestSHA512)
+		if err != nil {
+			err = emperror.ExposeStackTrace(emperror.Wrap(err, "cannot add file"))
+			stack, ok := emperror.StackTrace(err)
+			if ok {
+				log.Print(stack)
+			}
+			panic(err)
+		}
+		if _, err := file.Seek(0, 0); err != nil {
+			panic(err)
+		}
+		if err := o.AddFile(strings.Trim(strings.TrimPrefix(filepath.ToSlash(path), testdir), "/"), file, checksum); err != nil {
+			err = emperror.ExposeStackTrace(emperror.Wrap(err, "cannot add file"))
+			stack, ok := emperror.StackTrace(err)
+			if ok {
+				log.Print(stack)
+			}
+			panic(err)
+		}
+		return nil
+	}); err != nil {
 		panic(err)
 	}
 
