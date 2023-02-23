@@ -13,7 +13,7 @@ require (
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/text v0.3.7
+	golang.org/x/text v0.3.8
 )
 
 require (
@@ -24,6 +24,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
-	golang.org/x/sys v0.0.0-20220610221304-9f5ed59c137d // indirect
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 )
